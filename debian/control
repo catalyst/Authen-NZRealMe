@@ -1,0 +1,20 @@
+Source: libauthen-nzigovt-perl
+Section: perl
+Priority: optional
+Build-Depends: debhelper (>= 5)
+Build-Depends-Indep: perl (>= 5.6.10-12)
+Maintainer: Grant McLean <grant@catalyst.net.nz>
+Standards-Version: 3.8.0
+Homepage: http://search.cpan.org/dist/Authen-NZigovt/
+
+Package: libauthen-nzigovt-perl
+Architecture: all
+Depends: ${perl:Depends}, ${misc:Depends}, libxml-generator-perl, libxml-libxml-perl, liburi-perl, libwww-perl, libwww-curl-perl, libcrypt-openssl-rsa-perl, libcrypt-openssl-x509-perl, libdigest-sha1-perl, libio-compress-zlib-perl
+Description:  Tools for integrating with the New Zealand igovt logon service
+ This module provides an API for integrating your application with the New
+ Zealand igovt logon service using SAML 2.0 messaging.
+ .
+ The distribution also includes a command-line tool called nzigovt which can
+ be used for:
+ .
+ This description was automagically extracted from the module by dh-make-perl.
