@@ -1,0 +1,11 @@
+MANIFEST.SKIP
+\.cvsignore
+\bCVS\b
+.*\.swp$
+^MANIFEST\.
+^Makefile$
+^blib/
+^pm_to_blib$
+^MakeMaker-\d
+\.old$
+\.bak$

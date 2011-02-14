@@ -1,0 +1,803 @@
+package Authen::NZigovt::ServiceProvider;
+
+use strict;
+use warnings;
+
+require XML::LibXML;
+require XML::LibXML::XPathContext;
+require XML::Generator;
+require HTTP::Response;
+
+use URI::Escape  qw(uri_escape uri_unescape);
+use Digest::MD5  qw(md5_hex);
+use POSIX        qw(strftime);
+
+use WWW::Curl::Easy qw(
+    CURLOPT_URL
+    CURLOPT_POST
+    CURLOPT_HTTPHEADER
+    CURLOPT_POSTFIELDS
+    CURLOPT_SSLCERT
+    CURLOPT_SSLKEY
+    CURLOPT_SSL_VERIFYPEER
+    CURLOPT_WRITEDATA
+    CURLOPT_WRITEHEADER
+);
+
+use constant DATETIME_BEFORE => -1;
+use constant DATETIME_EQUAL  => 0;
+use constant DATETIME_AFTER  => 1;
+
+
+my $metadata_from_file    = undef;
+my $metadata_filename     = 'metadata-sp.xml';
+my $signing_cert_filename = 'sp-sign-crt.pem';
+my $signing_key_filename  = 'sp-sign-key.pem';
+my $ssl_cert_filename     = 'sp-ssl-crt.pem';
+my $ssl_key_filename      = 'sp-ssl-key.pem';
+
+
+my $ns_md       = [ md => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
+my $ns_ds       = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
+my $ns_saml     = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
+my $ns_samlp    = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
+my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
+
+my $urn_nameid_format = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
+my $urn_saml_success  = 'urn:oasis:names:tc:SAML:2.0:status:Success';
+
+
+my $soap_action = 'http://www.oasis-open.org/committees/security';
+
+
+sub new {
+    my $class = shift;
+
+    my $self = bless { @_ }, $class;
+    $self->_load_metadata();
+
+    return $self;
+}
+
+
+sub new_defaults {
+    my $class = shift;
+
+    my $self = bless {
+        @_,
+    }, $class;
+
+    return $self;
+}
+
+
+sub conf_dir               { shift->{conf_dir};               }
+sub id                     { shift->{id};                     }
+sub entity_id              { shift->{entity_id};              }
+sub url_single_logout      { shift->{url_single_logout};      }
+sub url_assertion_consumer { shift->{url_assertion_consumer}; }
+sub contact_company        { shift->{contact_company};        }
+sub contact_first_name     { shift->{contact_first_name};     }
+sub contact_surname        { shift->{contact_surname};        }
+sub _x                     { shift->{x};                      }
+sub nameid_format          { return $urn_nameid_format;       }
+sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
+sub signing_key_pathname   { shift->{conf_dir} . '/' . $signing_key_filename;  }
+sub ssl_cert_pathname      { shift->{conf_dir} . '/' . $ssl_cert_filename;     }
+sub ssl_key_pathname       { shift->{conf_dir} . '/' . $ssl_key_filename;      }
+
+sub idp {
+    my $self = shift;
+
+    return $self->{idp} if $self->{idp};
+
+    $self->{idp} = Authen::NZigovt->class_for('identity_provider')->new(
+        conf_dir => $self->conf_dir()
+    );
+}
+
+
+sub generate_saml_id {
+    my($self, $type) = @_;
+    return ('a'..'f')[rand(6)]  # id string must start with a letter
+           . md5_hex( join(',', "$self", $type, time(), rand(), $$) );
+}
+
+
+sub build_new {
+    my($class, %opt) = @_;
+
+    my $conf_dir  = $opt{conf_dir} or die "conf_dir not specified\n";
+    my $conf_path = $class->_metadata_pathname($conf_dir);
+
+    my $self = -r $conf_path
+               ? $class->new(conf_dir => $opt{conf_dir})
+               : $class->new_defaults(conf_dir => $opt{conf_dir});
+
+    my $args = eval {
+        Authen::NZigovt->class_for('sp_builder')->build($self);
+    };
+    if($@) {
+        print STDERR "$@";
+        exit 1;
+    }
+    return unless $args;
+
+    $self->{$_} = $args->{$_} foreach keys %$args;
+
+    open my $fh, '>', $conf_path or die "open(>$conf_path): $!";
+    print $fh $self->metadata_xml(), "\n";
+
+    return $self;
+}
+
+
+sub _load_metadata {
+    my $self = shift;
+
+    my $params = $metadata_from_file || $self->_read_metadata_from_file;
+
+    $self->{$_} = $params->{$_} foreach keys %$params;
+}
+
+
+sub _read_metadata_from_file {
+    my $self = shift;
+
+    my $parser = XML::LibXML->new();
+    my $doc    = $parser->parse_file( $self->_metadata_pathname );
+    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
+
+    $xc->registerNs( @$ns_md );
+
+    my %params;
+    foreach (
+        [ id                     => q{/md:EntityDescriptor/@ID} ],
+        [ entity_id              => q{/md:EntityDescriptor/@entityID} ],
+        [ url_single_logout      => q{/md:EntityDescriptor/md:SPSSODescriptor/md:SingleLogoutService/@Location} ],
+        [ url_assertion_consumer => q{/md:EntityDescriptor/md:SPSSODescriptor/md:AssertionConsumerService/@Location} ],
+        [ contact_company        => q{/md:EntityDescriptor/md:ContactPerson/md:Company} ],
+        [ contact_first_name     => q{/md:EntityDescriptor/md:ContactPerson/md:GivenName} ],
+        [ contact_surname        => q{/md:EntityDescriptor/md:ContactPerson/md:SurName} ],
+    ) {
+        $params{$_->[0]} = $xc->findvalue($_->[1]);
+    }
+
+    $metadata_from_file = \%params;
+}
+
+
+sub _metadata_pathname {
+    my $self     = shift;
+    my $conf_dir = shift;
+
+    $conf_dir ||= $self->conf_dir or die "conf_dir not set";
+    return $conf_dir . '/' . $metadata_filename;
+}
+
+
+sub new_request {
+    my $self = shift;
+
+    my $req = Authen::NZigovt->class_for('authen_request')->new($self, @_);
+    return $req;
+}
+
+
+sub _signing_cert_pem_data {
+    my $self = shift;
+
+    return $self->{signing_cert_pem_data} if $self->{signing_cert_pem_data};
+
+    my $path = $self->signing_cert_pathname
+        or die "No path to signing certificate file";
+
+    my $cert_data = do {
+        local($/) = undef; # slurp mode
+        open my $fh, '<', $path or die "open($path): $!";
+        <$fh>;
+    };
+
+    $cert_data =~ s{\r\n}{\n}g;
+    $cert_data =~ s{\A.*?^-+BEGIN CERTIFICATE-+\n}{}sm;
+    $cert_data =~ s{^-+END CERTIFICATE-+\n?.*\z}{}sm;
+
+    return $cert_data;
+}
+
+
+sub metadata_xml {
+    my $self = shift;
+
+    my $xml = $self->_sign_xml( $self->_to_xml_string(), $self->id );
+    return $xml;
+}
+
+
+sub _sign_xml {
+    my($self, $xml, $target_id) = @_;
+
+    my $signer = $self->_signer();
+
+    return $self->_signer->sign($xml, $target_id);
+}
+
+
+sub sign_query_string {
+    my($self, $qs) = @_;
+
+    $qs .= '&SigAlg=http%3A%2F%2Fwww.w3.org%2F2000%2F09%2Fxmldsig%23rsa-sha1';
+
+    my $signer = $self->_signer();
+
+    my $sig = $signer->rsa_signature( $qs, '' );
+
+    return $qs . '&Signature=' . uri_escape( $sig );
+}
+
+
+sub _signer {
+    my($self) = @_;
+
+    my $key_path = $self->signing_key_pathname
+        or die "No path to signing key file";
+
+    return Authen::NZigovt->class_for('xml_signer')->new(
+        key_file => $key_path,
+    );
+}
+
+
+sub resolve_artifact {
+    my($self, %args) = @_;
+
+    my $artifact = $args{artifact}
+        or die "Need artifact from SAMLart URL parameter\n";
+
+    if($artifact =~ m{\bSAMLart=(.*?)(?:&|$)}) {
+        $artifact = uri_unescape($1);
+    }
+
+    die "Can't resolve artifact without original request ID\n"
+        unless $args{request_id};
+
+    my $request   = Authen::NZigovt->class_for('resolution_request')->new($self, $artifact);
+    my $url       = $request->destination_url;
+    my $soap_body = $request->soap_request;
+
+    my $headers = [
+        'User-Agent: Authen-NZigovt/' . $Authen::NZigovt::VERSION,
+        'Content-Type: text/xml',
+        'SOAPAction: http://www.oasis-open.org/committees/security',
+        'Content-Length: ' . length($soap_body),
+    ];
+
+
+    my $resp = $self->_https_post($url, $headers, $soap_body);
+
+    die "Artifact resolution failed:\n" . $resp->as_string
+        unless $resp->is_success;
+
+    return $self->_verify_assertion($resp->content, %args);
+}
+
+
+sub _https_post {
+    my($self, $url, $headers, $body) = @_;
+
+    my $curl = new WWW::Curl::Easy;
+
+    $curl->setopt(CURLOPT_URL,        $url);
+    $curl->setopt(CURLOPT_POST,       1);
+    $curl->setopt(CURLOPT_HTTPHEADER, $headers);
+    $curl->setopt(CURLOPT_POSTFIELDS, $body);
+    $curl->setopt(CURLOPT_SSLCERT,    $self->ssl_cert_pathname);
+    $curl->setopt(CURLOPT_SSLKEY,     $self->ssl_key_pathname);
+    $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+
+    my($resp_body, $resp_head);
+    open (my $body_fh, ">", \$resp_body);
+    $curl->setopt(CURLOPT_WRITEDATA, $body_fh);
+    open (my $head_fh, ">", \$resp_head);
+    $curl->setopt(CURLOPT_WRITEHEADER, $head_fh);
+
+    my $resp;
+    my $retcode = $curl->perform;
+    if($retcode == 0) {
+        my($status, @head_lines) = split(/\r?\n/, $resp_head);
+        my($protocol, $code, $message) = split /\s+/, $status, 3;
+        my $headers = [ map { split /:\s+/, $_, 2 } @head_lines];
+
+        $resp = HTTP::Response->new($code, $message, $headers, $resp_body);
+    }
+    else {
+        $resp = HTTP::Response->new(
+            500, 'Error', [], $curl->strerror($retcode)." ($retcode)\n"
+        );
+    }
+
+    return $resp;
+}
+
+
+sub _verify_assertion {
+    my($self, $xml, %args) = @_;
+
+    my $result = {};
+    $result->{xml} = $xml if 0;
+
+    my $parser = XML::LibXML->new();
+    my $doc    = $parser->parse_string( $xml );
+    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
+
+    $xc->registerNs( @$ns_soap_env );
+    $xc->registerNs( @$ns_saml );
+    $xc->registerNs( @$ns_samlp );
+
+
+    # Check for SOAP error
+
+    if(my($error) = $xc->findnodes('//SOAP-ENV:Fault')) {
+        my $code   = $xc->findvalue('./SOAP-ENV:faultcode',   $error) || 'Unknown';
+        my $string = $xc->findvalue('./SOAP-ENV:faultstring', $error) || 'Unknown';
+        die "SOAP protocol error:\n  Fault Code: $code\n  Fault String: $string\n";
+    }
+
+
+    # Extract the SAML result code
+
+    my($status) = $xc->findvalue(
+        '//samlp:ArtifactResponse/samlp:Status/samlp:StatusCode/@Value'
+    ) or die "Could not find a SAML status code\n$xml\n";
+    die "SAML request failure: $status" if $status ne $urn_saml_success;
+    $result->{status} = $status;
+
+
+    # Extract the issue timestamp
+
+    my($timestamp) = $xc->findvalue('//samlp:ArtifactResponse/@IssueInstant') || '';
+    $result->{issue_instant} = $timestamp;
+
+
+    # Look for the SAML Response Subject payload
+
+    my($subject) = $xc->findnodes(
+        '//samlp:ArtifactResponse/samlp:Response/saml:Assertion/saml:Subject'
+    ) or die "Unable to find SAML Subject element in:\n$xml\n";
+
+
+    # We have a SAML assertion, make sure it's signed
+
+    my $idp  = $self->idp;
+    $idp->verify_signature($xml);
+
+
+    # Confirm that subject is valid for our SP
+
+    $self->_check_subject_confirmation($xc, $subject, $args{request_id});
+
+
+    # Check that it was generated by the expected IdP
+
+    my $idp_entity_id = $idp->entity_id;
+    my $from_sp = $xc->findvalue('./saml:NameID/@NameQualifier', $subject) || '';
+    die "SAML assertion created by '$from_sp', expected '$idp_entity_id'\n$xml\n"
+        if $from_sp ne $idp_entity_id;
+    $result->{issuer} = $idp_entity_id;
+
+
+    # Check that it's intended for our SP
+
+    my $sp_entity_id  = $self->entity_id;
+    my $for_sp = $xc->findvalue('./saml:NameID/@SPNameQualifier', $subject) || '';
+    die "SAML assertion created for '$for_sp', expected '$sp_entity_id'\n$xml\n"
+        if $for_sp ne $sp_entity_id;
+
+
+    # Look for Conditions on the assertion
+
+    $self->_check_conditions($xc);  # will die on failure
+
+
+    # Make sure it's in the expected format
+
+    my $nameid_format = $self->nameid_format();
+    my $format = $xc->findvalue('./saml:NameID/@Format', $subject) || '';
+    die "Unrecognised NameID format '$format', expected '$nameid_format'\n$xml\n"
+        if $format ne $nameid_format;
+
+
+    # Check the logon strength (if required)
+
+    my $strength = $xc->findvalue(
+        q{//samlp:Response/saml:Assertion/saml:AuthnStatement/saml:AuthnContext/saml:AuthnContextClassRef}
+    ) || '';
+    $result->{strength} = $strength;
+    if($args{logon_strength}) {
+        $strength = Authen::NZigovt->class_for('logon_strength')->new($strength);
+        $strength->assert_match($args{logon_strength}, $args{strength_match});
+    }
+
+    # Extract the FLT
+
+    my $flt = $xc->findvalue(
+        q{//samlp:Response/saml:Assertion/saml:Subject/saml:NameID}
+    ) or die "Can't find NameID element in response:\n$xml\n";
+
+    $flt =~ s{\s+}{}g;
+
+    $result->{flt} = $flt;
+
+    return $result;
+}
+
+
+sub _check_subject_confirmation {
+    my($self, $xc, $subject, $request_id) = @_;
+
+    my $xml = $subject->toString();
+
+    my($conf_data) = $xc->findnodes(
+        './saml:SubjectConfirmation/saml:SubjectConfirmationData',
+        $subject
+    ) or die "SAML assertion does not contain SubjectConfirmationData\n$xml\n";
+
+
+    # Check that it's a reply to our request
+
+    my $response_to = $xc->findvalue('./@InResponseTo', $conf_data) || '';
+    die "SAML response to unexpected request ID\n"
+        . "Original:    '$request_id'\n"
+        . "Response To: '$response_to'\n$xml\n" if $request_id ne $response_to;
+
+    # Check that it has not expired
+
+    my $now = $self->now_as_iso();
+
+    if(my($end_time) = $xc->findvalue('./@NotOnOrAfter', $conf_data)) {
+        if($self->_compare_times($now, $end_time) != DATETIME_BEFORE) {
+            die "SAML assertion SubjectConfirmationData expired at '$end_time'\n";
+        }
+    }
+
+}
+
+
+sub _check_conditions {
+    my($self, $xc) = @_;
+
+    my($conditions) = $xc->findnodes(
+        '//samlp:ArtifactResponse/samlp:Response/saml:Assertion/saml:Conditions'
+    ) or return;
+
+    my $xml = $conditions->toString();
+
+    my $now = $self->now_as_iso();
+
+    if(my($start_time) = $xc->findvalue('./@NotBefore', $conditions)) {
+        if($self->_compare_times($start_time, $now) != DATETIME_BEFORE) {
+            die "SAML assertion not valid until '$start_time'\n";
+        }
+    }
+
+    if(my($end_time) = $xc->findvalue('./@NotOnOrAfter', $conditions)) {
+        if($self->_compare_times($now, $end_time) != DATETIME_BEFORE) {
+            die "SAML assertion not valid after '$end_time'\n";
+        }
+    }
+
+    foreach my $condition ($xc->findnodes('./saml:*', $conditions)) {
+        my($name)  = $condition->localname();
+        my $method = "_check_condition_$name";
+        die "Unimplemented condition: '$name'" unless $self->can($method);
+        $self->$method($xc, $condition);
+    }
+
+    return;  # no problems were encountered
+}
+
+
+sub _check_condition_AudienceRestriction {
+    my($self, $xc, $condition) = @_;
+
+    my $entity_id = $self->entity_id;
+    my $audience  = $xc->findvalue('./saml:Audience', $condition)
+        or die "Can't find target audience in: " . $condition->toString();
+
+    die "SAML assertion only valid for audience '$audience' (expected '$entity_id')"
+        if $audience ne $entity_id;
+}
+
+
+sub _compare_times {
+    my($self, $date1, $date2) = @_;
+
+    foreach ($date1, $date2) {
+        s/\s+//g;
+        die "Invalid timestamp '$_'\n"
+            unless /\A\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\dZ(.*)\z/s;
+        die "Non-UTC dates are not supported: '$_'" if $1;
+    }
+
+    return $date1 cmp $date2;
+}
+
+
+sub _to_xml_string {
+    my $self = shift;
+
+    my $x = XML::Generator->new(':pretty',
+        namespace => [ @$ns_md, @$ns_ds ],
+    );
+    $self->{x} = $x;
+
+    return $x->EntityDescriptor($ns_md,
+        {
+            ID       => $self->id,
+            entityID => $self->entity_id,
+        },
+        $self->_gen_sp_sso_descriptor(),
+        $self->_gen_contact(),
+    );
+}
+
+
+sub _gen_sp_sso_descriptor {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->SPSSODescriptor($ns_md,
+        {
+            AuthnRequestsSigned        => 'true',
+            WantAssertionsSigned       => 'true',
+            protocolSupportEnumeration => 'urn:oasis:names:tc:SAML:2.0:protocol',
+        },
+        $self->_gen_signing_key(),
+        $self->_gen_svc_logout(),
+        $self->_gen_svc_assertion_consumer(),
+    );
+}
+
+
+sub _gen_signing_key {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->KeyDescriptor($ns_md,
+        {
+            use => 'signing',
+        },
+        $x->KeyInfo($ns_ds,
+            $x->X509Data($ns_ds,
+                $x->X509Certificate($ns_ds,
+                    $self->_signing_cert_pem_data(),
+                ),
+            ),
+        ),
+    );
+}
+
+
+sub _gen_svc_logout {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->SingleLogoutService($ns_md,
+        {
+            Binding          => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
+            Location         => $self->url_single_logout,
+            ResponseLocation => $self->url_single_logout,
+        },
+    );
+}
+
+
+sub _gen_svc_assertion_consumer {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->AssertionConsumerService($ns_md,
+        {
+            Binding          => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact',
+            Location         => $self->url_assertion_consumer,
+            ResponseLocation => $self->url_assertion_consumer,
+            index            => 0,
+            isDefault        => 'true',
+        },
+    );
+}
+
+
+sub _gen_contact {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    my $have_contact = $self->contact_company
+                       || $self->contact_first_name
+                       || $self->contact_surname;
+
+    return() unless $have_contact;
+
+    return $x->ContactPerson($ns_md,
+        {
+            contactType      => 'technical',
+        },
+        $x->Company  ($ns_md, $self->contact_company    || ''),
+        $x->GivenName($ns_md, $self->contact_first_name || ''),
+        $x->SurName  ($ns_md, $self->contact_surname    || ''),
+    );
+}
+
+
+sub now_as_iso {
+    return strftime('%FT%TZ', gmtime());
+}
+
+
+1;
+
+
+__END__
+
+=head1 NAME
+
+Authen::NZigovt::ServiceProvider - Class representing the local SAML2 Service Provider
+
+=head1 DESCRIPTION
+
+This class is used to represent the local SAML2 Service Provider which will be
+used to access the NZ igovt logon service Identity Provider.  In normal use, an
+object of this class is initialised from the F<metadata-sp.xml> in the
+configuration directory.  This class can also be used to generate that metadata
+file.
+
+=head1 METHODS
+
+=head2 new
+
+Constructor.  Should not be called directly.  Instead, call:
+
+  Authen::NZigovt->class_for('service_provider')->new( args );
+
+The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
+of the directory containing SP and IdP metadata files as well as certificate
+and key files for request signing and mutual-SSL.
+
+=head2 new_defaults
+
+Alternative constructor which is called to set up some sensible defaults when
+generating metadata.
+
+=head2 conf_dir
+
+Accessor for the C<conf_dir> parameter passed in to the constructor.
+
+=head2 id
+
+Accessor for the C<ID> parameter in the Service Provider metadata file.
+
+=head2 entity_id
+
+Accessor for the C<entityID> parameter in the Service Provider metadata file.
+
+=head2 url_single_logout
+
+Accessor for the C<SingleLogoutService> parameter in the Service Provider
+metadata file.
+
+=head2 url_assertion_consumer
+
+Accessor for the C<AssertionConsumerService> parameter in the Service Provider
+metadata file.
+
+=head2 contact_company
+
+Accessor for the C<Company> component of the C<ContactPerson> parameter in the
+Service Provider metadata file.
+
+=head2 contact_first_name
+
+Accessor for the C<GivenName> component of the C<ContactPerson> parameter in the
+Service Provider metadata file.
+
+=head2 contact_surname
+
+Accessor for the C<SurName> component of the C<ContactPerson> parameter in the
+Service Provider metadata file.
+
+=head2 signing_cert_pathname
+
+Accessor for the pathname of the Service Provider's signing certificate.  This
+will always be the file F<sp-sign-crt.pem> in the configuration directory.
+
+=head2 signing_key_pathname
+
+Accessor for the pathname of the Service Provider's signing key.  This will
+always be the file F<sp-sign-key.pem> in the configuration directory.
+
+=head2 ssl_cert_pathname
+
+Accessor for the pathname of the Service Provider's mutual SSL certificate.
+This will always be the file F<sp-ssl-crt.pem> in the configuration directory.
+
+=head2 ssl_key_pathname
+
+Accessor for the pathname of the Service Provider's mutual SSL private key.
+This will always be the file F<sp-sign-crt.pem> in the configuration directory.
+
+=head2 idp
+
+Accessor for an object representing the Identity Provider (See:
+L<Authen::NZigovt::IdentityProvider>.
+
+=head2 nameid_format
+
+Returns a string URN representing the format of the NameID (Federated LogonTag
+- FLT) requested/expected from the Identity Provider.
+
+=head2 generate_saml_id
+
+Used by the request classes to generate a unique identifier for each request.
+It accepts one argument, being a string like 'AuthenRequest' to identify the
+type of request.
+
+=head2 build_new
+
+Called by the C<< nzigovt make-meta >> command to run an interactive Q&A
+session to initialise or edit the contents of the Service Provider metadata
+file.
+
+=head2 new_request
+
+Creates a new SAML2 AuthnRequest object.  The caller would typically use the
+C<as_url> method of the request to redirect the client to the Identity
+Provider's single logon service.  The request object's C<request_id> method
+should be used to get the request ID and save it in session state for use later
+during artifact resolution.
+
+=head2 metadata_xml
+
+Serialises the current Service Provider config parameters to a SAML2
+EntityDescriptor metadata document.
+
+=head2 sign_query_string
+
+Used by the L<Authen::NZigovt::AuthenRequest> class to create a digital
+signature for the AuthnRequest HTTP-Redirect URL.
+
+=head2 resolve_artifact
+
+Takes an artifact (either the whole URL or just the C<SAMLart> parameter) and
+contacts the Identity Provider to resolve it to an FLT.  Parameters (including
+the original request_id) must be supplied as key => value pairs, for example:
+
+  my $resp = $sp->resolve_artifact(
+      artifact       => $req->param('SAMLart'),
+      request_id     => $state->{igovt_request_id},
+      logon_strength => 'low',        # optional
+      strength_match => 'minimum',    # optional - default: 'minimum'
+  );
+
+The assertion returned by the Identity Provider will be validated and its
+contents returned as a hashref with the following keys:
+
+  flt        - the value of the NameID element returned
+  strength   - the urn of the AuthnContextClassRef returned
+
+If an error occurs while resolving the artifact or while validating the
+resulting assertion, an exception will be thrown.
+
+=head2 now_as_iso
+
+Convenience method returns the current time formatted as an ISO date/time string.
+
+=head1 COPYRIGHT
+
+Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>
+
+This library is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=cut
+
+

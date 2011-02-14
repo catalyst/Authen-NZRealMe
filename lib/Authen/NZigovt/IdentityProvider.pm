@@ -1,0 +1,205 @@
+package Authen::NZigovt::IdentityProvider;
+
+use strict;
+use warnings;
+
+require XML::LibXML;
+require XML::LibXML::XPathContext;
+
+use MIME::Base64 qw(encode_base64);
+
+
+my $metadata_from_file = undef;
+my $metadata_filename  = 'metadata-idp.xml';
+
+
+my $ns_md = [ md => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
+my $ns_ds = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
+
+my $soap_binding = 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP';
+
+
+sub new {
+    my $class = shift;
+
+    my $self = bless { @_ }, $class;
+    $self->_load_metadata();
+
+    return $self;
+}
+
+
+sub conf_dir              { shift->{conf_dir};               }
+sub entity_id             { shift->{entity_id};              }
+sub single_signon_location{ shift->{single_signon_location}; }
+sub signing_cert_pem_data { shift->{signing_cert_pem_data};  }
+
+
+sub artifact_resolution_location {
+    my($self, $index) = @_;
+
+    die "Need an index for artifact_resolution_location" unless defined $index;
+    my $url = $self->{ars}->{$index}
+        or die "No mapping for artifact_resolution_location index '$index'";
+    return $url;
+}
+
+
+sub verify_signature {
+    my($self, $xml) = @_;
+
+    my $verifier = Authen::NZigovt->class_for('xml_signer')->new(
+        pub_cert_text => $self->signing_cert_pem_data(),
+    );
+
+    return $verifier->verify($xml);
+}
+
+
+sub _load_metadata {
+    my $self = shift;
+
+    my $params = $metadata_from_file || $self->_read_metadata_from_file;
+
+    $self->{$_} = $params->{$_} foreach keys %$params;
+}
+
+
+sub _read_metadata_from_file {
+    my $self = shift;
+
+    my $parser = XML::LibXML->new();
+    my $doc    = $parser->parse_file( $self->_metadata_pathname );
+    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
+
+    $xc->registerNs( @$ns_md );
+    $xc->registerNs( @$ns_ds );
+
+    my %params;
+    foreach (
+        [ entity_id              => q{/md:EntityDescriptor/@entityID} ],
+        [ single_signon_location => q{/md:EntityDescriptor/md:IDPSSODescriptor/md:SingleSignOnService/@Location} ],
+        [ signing_cert_pem_data  => q{/md:EntityDescriptor/md:IDPSSODescriptor/md:KeyDescriptor[@use = 'signing']/ds:KeyInfo/ds:X509Data/ds:X509Certificate} ],
+    ) {
+        $params{$_->[0]} = $xc->findvalue($_->[1]);
+    }
+    $params{signing_cert_pem_data} =~ s{^[ \t]+}{}mg;
+    $params{signing_cert_pem_data} =~ s{\A[ \t\r\n]+}{}g;
+    $params{signing_cert_pem_data} =
+        "-----BEGIN CERTIFICATE-----\n"
+        . $params{signing_cert_pem_data}
+        . "-----END CERTIFICATE-----\n";
+
+    my %ars;
+    foreach my $svc( $xc->findnodes(
+        q{/md:EntityDescriptor/md:IDPSSODescriptor/md:ArtifactResolutionService}
+    )) {
+        my($index)   = $xc->findvalue(q{./@index}, $svc)
+            or die "No index for ArtifactResolutionService:\n" . $svc->toString;
+        $ars{$index} = $xc->findvalue(q{./@Location}, $svc)
+            or die "No Location for ArtifactResolutionService:\n" . $svc->toString;
+        my $binding  = $xc->findvalue(q{./@Binding}, $svc)
+            or die "No Binding for ArtifactResolutionService:\n" . $svc->toString;
+        die "Unrecognised binding '$binding' for ArtifactResolutionService: \n" . $svc->toString
+            if $binding ne $soap_binding;
+    }
+    $params{ars} = \%ars;
+
+    $metadata_from_file = \%params;
+}
+
+
+sub _metadata_pathname {
+    my $self = shift;
+
+    my $conf_dir = $self->conf_dir or die "conf_dir not set";
+    return $conf_dir . '/' . $metadata_filename;
+}
+
+
+sub validate_source_id {
+    my($self, $source_id) = @_;
+
+    my $got = encode_base64($source_id, '');
+    my $exp = sha1_base64( $self->entity_id );
+
+    s/=+$// foreach ( $got, $exp);
+
+    return 1 if $got eq $exp;
+
+    die "Invalid SourceID during artifact resolution\n"
+        . "Got     : '$got'\n"
+        . "Expected: '$exp'\n";
+}
+
+
+1;
+
+
+__END__
+
+=head1 NAME
+
+Authen::NZigovt::IdentityProvider - Class representing the NZ igovt Identity Provider
+
+=head1 DESCRIPTION
+
+This class is used to represent the NZ igovt logon service Identity Provider.
+An object of this class is initialised from the F<metadata-idp.xml> in the
+configuration directory.
+
+=head1 METHODS
+
+=head2 new
+
+Constructor.  Should not be called directly.  Instead, call the C<idp> method
+on the service provider object.
+
+The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
+of the directory containing the IdP metadata file.
+
+=head2 conf_dir
+
+Accessor for the C<conf_dir> parameter passed in to the constructor.
+
+=head2 entity_id
+
+Accessor for the C<ID> parameter in the Identity Provider metadata file.
+
+=head2 single_signon_location
+
+Accessor for the C<SingleSignOnService> parameter in the Service Provider
+metadata file.
+
+=head2 signing_cert_pem_data
+
+Accessor for the signing certificate (X509 format) text from the metadata file.
+
+=head2 artifact_resolution_location
+
+Accessor for the C<ArtifactResolutionService> parameter in the Service Provider
+metadata file.  When calling this method, you must provide an index number
+(from the artifact).
+
+=head2 verify_signature
+
+Takes an XML document signed by the Identity provider and returns true if the
+signature is valid.
+
+=head2 validate_source_id
+
+Takes a source ID string from an artifact to be resolved and confirms that it
+was generated by this Identity Provider.  Returns true on successs, dies on
+error.
+
+
+=head1 COPYRIGHT
+
+Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>
+
+This library is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=cut
+
+

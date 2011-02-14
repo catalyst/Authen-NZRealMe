@@ -1,0 +1,142 @@
+#!/usr/bin/perl
+##############################################################################
+#
+# Tools for interacting with the New Zealand 'igovt Login Service'
+# (see: https://i.govt.nz/ ).
+#
+# These tools ARE NOT produced by, nor endorsed by the Department of Internal
+# Affairs who operate the igovt login service.  They are merely an implemention
+# of the published protocols.
+#
+# For more information, see:
+#
+#   nzigovt --help
+#
+# Copyright (c) 2010 Grant McLean <grant@catalyst.net.nz>
+#
+
+use strict;
+use warnings;
+
+use Pod::Usage;
+use Getopt::Long qw(GetOptions);
+
+use Authen::NZigovt;
+
+my(%opt);
+
+if(!GetOptions(\%opt,
+    'help|?',
+    'conf_dir|conf-dir|c=s'
+)) {
+    pod2usage(-exitval => 1,  -verbose => 0);
+}
+
+
+if($opt{help} or (@ARGV && $ARGV[0] eq 'help')) {
+    pod2usage(-exitstatus => 0, -verbose => 2);
+}
+
+eval { Authen::NZigovt->run_command(\%opt, @ARGV); };
+if($@) {
+    pod2usage(-exitstatus => 1, -verbose => 0, -message => "$@");
+}
+
+exit 0;
+
+
+__END__
+
+=head1 NAME
+
+nzigovt - Tools for interacting with the New Zealand 'igovt Login Service'
+
+=head1 SYNOPSIS
+
+  nzigovt [options] <command> [args ...]
+
+  Commands:
+
+   make-meta   generate XML metadata for your Service Provider (SP)
+   make-certs  generate certificate/key-pair files
+   make-bundle generate a zip archive of metadata and certificate files
+   make-req    generate a SAML AuthnRequest, encoded as a URL
+   dump-req    dissect the provided URL and dump the XML
+   help        detailed help message
+
+  Options:
+
+   --conf-dir  pathname of directory containing metadata & cert files
+
+=head1 DESCRIPTION
+
+The C<nzigovt> script and related modules from the L<Authen::NZigovt>
+distribution provide tools for interacting with the New Zealand 'igovt logon
+service' operated by the Department of Internal Affairs.  These tools ARE NOT
+produced by nor endorsed by the Department of Internal Affairs.  They are
+merely an implemention of the published protocols.
+
+=head1 COMMANDS
+
+The following commands are available:
+
+=over 4
+
+=item make-meta
+
+Generate (or edit) a Service Provider metadata file and save it with a digital
+signature.
+
+=item make-certs
+
+Generates two certificate/key pairs, for signing and SSL encryption.
+
+=item make-bundle
+
+Creates a ZIP file containing the metadata and certificate files needed by
+the Identity Provider.
+
+=item make-req
+
+Generate a URL containing a SAML AuthnRequest - for initiating a logon.
+
+=item dump-req
+
+Takes a URL containing a SAML AuthnRequest; decodes it; and dumps the XML.  For
+example:
+
+  nzigovt -c /etc/igovt-conf make-req | nzigovt -c /etc/igovt-conf dump-req
+
+=item resolve
+
+Takes a URL containing a SAML artifact; decodes it; generates a SAML
+ArtifactResolve request; sends the request to the IdP using SOAP over the SSL
+back-channel; validates the resulting assertion; and extracts the FLT
+(Federated Logon Tag) from the response.
+
+Note: in practice a SML artifact very soon after it is generated or it will
+expire.
+
+=back
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<< --conf-dir <directory> >> (alias -c)
+
+Specify the path to the directory containing the metadata files and
+certificate/key-pair files for signing requests and encrypting SSL traffic.
+See C<< perldoc Authen::NZigovt >> for more information about config files.
+
+=item B<< --help >> (alias -?)
+
+Display this documentation.
+
+=back
+
+=cut
+
+
+
