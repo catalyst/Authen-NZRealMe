@@ -10,11 +10,6 @@ use URI::Escape                qw(uri_escape uri_unescape);
 use IO::Uncompress::RawInflate qw(rawinflate $RawInflateError);
 use IO::Compress::RawDeflate   qw(rawdeflate $RawDeflateError);
 
-my %strength_urn = (
-    low => 'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:ac:classes:LowStrength',
-    mod => 'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:ac:classes:ModStrength',
-);
-
 my $ns_saml  = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
 my $ns_samlp = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
 
@@ -69,7 +64,7 @@ sub _x              { shift->{x};                   }
 sub _bool {
     my($self, $flag) = @_;
     my $value = shift->{allow_create};
-    return defined($value) && lc($value) =~ /^(1|true)$/
+    return (defined($value) && lc($value) =~ /^(1|true)$/)
            ? 'true'
            : 'false';
 }
@@ -109,7 +104,7 @@ sub _generate_authn_request_doc {
             ID                            => $self->request_id(),
             IssueInstant                  => $self->request_time(),
             Destination                   => $self->destination_url(),
-            ForceAuthn                    => 'true',
+            ForceAuthn                    => $self->force_auth(),
             AssertionConsumerServiceIndex => '0',
         },
         $self->_issuer(),
