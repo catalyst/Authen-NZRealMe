@@ -25,6 +25,7 @@ WriteMakefile(
         'Crypt::OpenSSL::X509'     => 0,
         'Digest::SHA1'             => 0,
         'IO::Compress::RawDeflate' => 0,
+        'Term::ReadLine::Gnu'      => 0,
     },
     EXE_FILES           => [ qw(bin/nzigovt) ],
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
