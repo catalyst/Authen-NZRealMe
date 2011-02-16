@@ -60,7 +60,12 @@ sub build {
     my $args =  { map { $_ => $sp->{$_} } keys %f };
 
     $term = Term::ReadLine->new($prog_name);
-    $term->Attribs->ornaments(0);
+    if($term->Attribs and $term->Attribs->can('ornaments')) {
+        $term->Attribs->ornaments(0);
+    }
+    else {
+        warn "Consider installing Term::ReadLine::Gnu for better terminal handling.\n";
+    }
 
     print <<EOF;
 This tool will allow you to create or edit your Service Provider metadata
