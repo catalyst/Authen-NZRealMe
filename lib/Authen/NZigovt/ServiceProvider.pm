@@ -747,13 +747,31 @@ Called by the C<< nzigovt make-meta >> command to run an interactive Q&A
 session to initialise or edit the contents of the Service Provider metadata
 file.
 
-=head2 new_request
+=head2 new_request( options )
 
-Creates a new SAML2 AuthnRequest object.  The caller would typically use the
-C<as_url> method of the request to redirect the client to the Identity
-Provider's single logon service.  The request object's C<request_id> method
-should be used to get the request ID and save it in session state for use later
-during artifact resolution.
+Creates a new L<Authen::NZigovt::AuthenRequest> object.  The caller would
+typically use the C<as_url> method of the request to redirect the client to the
+Identity Provider's single logon service.  The request object's C<request_id>
+method should be used to get the request ID and save it in session state for
+use later during artifact resolution.
+
+The C<new_request> method does not require any arguments, but accepts optional
+key => value pairs:
+
+  allow_create      boolean value controlling whether the user should be
+                    allowed to create a new account on the IdP (default false)
+
+  force_auth        boolean value controlling whether the user will be forced
+                    to log in (default true)
+
+  auth_strength     the logon strength required - may be supplied as a URN, or
+                    as keyword ('low', 'mod', 'sms' ...) (default 'low')
+
+  relay_state       user-supplied string value that will be returned as a
+                    URL parameter to the assertion consumer service
+
+See L<Authen::NZigovt::LogonStrength> for constants to pass as valid logon
+strength URN values.
 
 =head2 metadata_xml
 

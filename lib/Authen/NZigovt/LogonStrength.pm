@@ -86,8 +86,8 @@ Authen::NZigovt::LogonStrength - Manipulate NZ igovt logon service AuthnContextC
 
 =head1 DESCRIPTION
 
-The NZ igovt logon service suports the notion of logon strength.  For example a
-user session authenticated with a username and password is a 'low strength'
+The NZ igovt logon service supports the notion of logon strength.  For example
+a user session authenticated with a username and password is a 'low strength'
 logon.  Whereas authenticating with a user, password and SecureID token will
 result in a moderate strength logon.  The different logon strengths are
 represented by URNs which will be present in the initial SAML AuthnRequest
