@@ -283,6 +283,11 @@ decompress the SAMLRequest parameter from a generated URL.  It is provided as a
 diagnostic aid.
 
 
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
 =head1 COPYRIGHT
 
 Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>

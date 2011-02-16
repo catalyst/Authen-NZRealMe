@@ -141,6 +141,12 @@ The C<strength_match> parameter must be 'exact' or 'minimum' (default
 'minimum').  When comparing different logon strengths, the rules outlined in
 the igovt logon service SAML v2.0 Messaging Specification are used.
 
+
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
 =head1 COPYRIGHT
 
 Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>

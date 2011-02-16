@@ -133,6 +133,11 @@ Accessor for the XML document which will be sent as a SOAP request to the
 Identity Provider's artifact resolution service.
 
 
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
 =head1 COPYRIGHT
 
 Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>

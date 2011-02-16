@@ -193,6 +193,11 @@ This class is used for creating and editing the Service Provider metadata file.
 Called by the C<< nzigovt make-meta >> command to create or edit the Service
 Provider metadata file through a series of interactive questions and answers.
 
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
 =head1 COPYRIGHT
 
 Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>

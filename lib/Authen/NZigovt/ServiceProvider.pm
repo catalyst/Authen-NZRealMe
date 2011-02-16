@@ -755,23 +755,33 @@ Identity Provider's single logon service.  The request object's C<request_id>
 method should be used to get the request ID and save it in session state for
 use later during artifact resolution.
 
-The C<new_request> method does not require any arguments, but accepts optional
-key => value pairs:
+The C<new_request> method does not B<require> any arguments, but accepts the
+following optional key => value pairs:
 
-  allow_create      boolean value controlling whether the user should be
-                    allowed to create a new account on the IdP (default false)
+=over 4
 
-  force_auth        boolean value controlling whether the user will be forced
-                    to log in (default true)
+=item allow_create => boolean
 
-  auth_strength     the logon strength required - may be supplied as a URN, or
-                    as keyword ('low', 'mod', 'sms' ...) (default 'low')
+Controls whether the user should be allowed to create a new account on the IdP.
+Default: false.
 
-  relay_state       user-supplied string value that will be returned as a
-                    URL parameter to the assertion consumer service
+=item force_auth => boolean
 
-See L<Authen::NZigovt::LogonStrength> for constants to pass as valid logon
-strength URN values.
+Controls whether the user will be forced to log in, rather than allowing the
+reuse of an existing logon session on the IdP.  Default: true.
+
+=item auth_strength => string
+
+The logon strength required.  May be supplied as a URN, or as keyword ('low',
+'mod', 'sms', etc).  See L<Authen::NZigovt::LogonStrength> for constants.
+Default: 'low'.
+
+=item relay_state => string
+
+User-supplied string value that will be returned as a URL parameter to the
+assertion consumer service.
+
+=back
 
 =head2 metadata_xml
 
@@ -808,6 +818,12 @@ resulting assertion, an exception will be thrown.
 =head2 now_as_iso
 
 Convenience method returns the current time formatted as an ISO date/time string.
+
+
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
 
 =head1 COPYRIGHT
 

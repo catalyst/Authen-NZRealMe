@@ -390,6 +390,11 @@ If the public key is being extracted from an X509 certificate, this method is
 used to retrieve the text which defines the certificate.
 
 
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2010 Grant McLean.
