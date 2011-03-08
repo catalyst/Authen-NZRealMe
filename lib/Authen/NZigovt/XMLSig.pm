@@ -397,11 +397,15 @@ See L<Authen::NZigovt> for documentation index.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010 Grant McLean.
+Copyright (c) 2010-2011 the New Zealand Electoral Enrolment Centre
+
+Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
 by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
 
 =cut
 

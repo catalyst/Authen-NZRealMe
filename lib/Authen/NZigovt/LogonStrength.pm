@@ -147,9 +147,11 @@ the igovt logon service SAML v2.0 Messaging Specification are used.
 See L<Authen::NZigovt> for documentation index.
 
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
-Copyright 2010 Grant McLean E<lt>grant@catalyst.net.nzE<gt>
+Copyright (c) 2010-2011 the New Zealand Electoral Enrolment Centre
+
+Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
