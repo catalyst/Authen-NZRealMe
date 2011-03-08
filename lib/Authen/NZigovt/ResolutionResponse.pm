@@ -26,7 +26,6 @@ sub is_error          { return shift->status_urn ne $urn_success; }
 sub is_timeout        { return shift->status_urn eq $urn_timeout; }
 sub is_cancel         { return shift->status_urn eq $urn_cancel;  }
 sub is_not_registered { return shift->status_urn eq $urn_not_reg; }
-sub issue_instant     { return shift->{issue_instant};            }
 sub flt               { return shift->{flt};                      }
 sub logon_strength    { return shift->{logon_strength};           }
 
@@ -163,21 +162,13 @@ response object and are not intended for use by the calling application.
 
 =over 4
 
-=item *
+=item set_status_urn
 
-set_status_urn
+=item set_status_message
 
-=item *
+=item set_logon_strength
 
-set_status_message
-
-=item *
-
-set_logon_strength
-
-=item *
-
-set_flt
+=item set_flt
 
 =back
 
