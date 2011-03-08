@@ -1,3 +1,9 @@
+libauthen-nzigovt-perl (1.00-1) unstable; urgency=low
+
+  * new upstream release
+
+ -- Grant McLean <grant@catalyst.net.nz>  Wed, 09 Mar 2011 10:51:41 +1300
+
 libauthen-nzigovt-perl (0.01-1) unstable; urgency=low
 
   * Initial Release.
