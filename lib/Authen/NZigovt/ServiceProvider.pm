@@ -44,8 +44,6 @@ my $ns_samlp    = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
 my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
 
 my $urn_nameid_format = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
-my $urn_saml_success  = 'urn:oasis:names:tc:SAML:2.0:status:Success';
-
 
 my $soap_action = 'http://www.oasis-open.org/committees/security';
 
@@ -323,9 +321,6 @@ sub _https_post {
 sub _verify_assertion {
     my($self, $xml, %args) = @_;
 
-    my $result = {};
-    $result->{xml} = $xml if 0;
-
     my $parser = XML::LibXML->new();
     my $doc    = $parser->parse_string( $xml );
     my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
@@ -346,17 +341,8 @@ sub _verify_assertion {
 
     # Extract the SAML result code
 
-    my($status) = $xc->findvalue(
-        '//samlp:ArtifactResponse/samlp:Status/samlp:StatusCode/@Value'
-    ) or die "Could not find a SAML status code\n$xml\n";
-    die "SAML request failure: $status" if $status ne $urn_saml_success;
-    $result->{status} = $status;
-
-
-    # Extract the issue timestamp
-
-    my($timestamp) = $xc->findvalue('//samlp:ArtifactResponse/@IssueInstant') || '';
-    $result->{issue_instant} = $timestamp;
+    my $response = $self->_build_resolution_response($xc, $xml);
+    return $response if $response->is_error;
 
 
     # Look for the SAML Response Subject payload
@@ -383,7 +369,6 @@ sub _verify_assertion {
     my $from_sp = $xc->findvalue('./saml:NameID/@NameQualifier', $subject) || '';
     die "SAML assertion created by '$from_sp', expected '$idp_entity_id'\n$xml\n"
         if $from_sp ne $idp_entity_id;
-    $result->{issuer} = $idp_entity_id;
 
 
     # Check that it's intended for our SP
@@ -412,7 +397,7 @@ sub _verify_assertion {
     my $strength = $xc->findvalue(
         q{//samlp:Response/saml:Assertion/saml:AuthnStatement/saml:AuthnContext/saml:AuthnContextClassRef}
     ) || '';
-    $result->{strength} = $strength;
+    $response->set_logon_strength($strength);
     if($args{logon_strength}) {
         $strength = Authen::NZigovt->class_for('logon_strength')->new($strength);
         $strength->assert_match($args{logon_strength}, $args{strength_match});
@@ -426,9 +411,43 @@ sub _verify_assertion {
 
     $flt =~ s{\s+}{}g;
 
-    $result->{flt} = $flt;
+    $response->set_flt($flt);
 
-    return $result;
+    return $response;
+}
+
+
+sub _build_resolution_response {
+    my($self, $xc, $xml) = @_;
+
+    my $response = Authen::NZigovt->class_for('resolution_response')->new($xml);
+
+    my($status_code) = $xc->findnodes(
+        '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusCode'
+    ) or die "Could not find a SAML status code\n$xml\n";
+
+    # Recurse down to find the most specific status code
+
+    while(
+        my($child_code) = $xc->findnodes('./samlp:StatusCode', $status_code)
+    ) {
+        $status_code = $child_code;
+    }
+
+    my($urn) = $xc->findvalue('./@Value', $status_code)
+        or die "Couldn't find 'Value' attribute for StatusCode\n$xml\n";
+
+    $response->set_status_urn($urn);
+
+    return $response if $response->is_success;
+
+    my $message = $xc->findvalue(
+        '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusMessage'
+    ) || '';
+    $message =~ s{^\[.*\]}{};    # Strip off [SP EntityID] prefix
+    $response->set_status_message($message) if $message;
+
+    return $response
 }
 
 
@@ -807,17 +826,18 @@ the original request_id) must be supplied as key => value pairs, for example:
   );
 
 The assertion returned by the Identity Provider will be validated and its
-contents returned as a hashref with the following keys:
-
-  flt        - the value of the NameID element returned
-  strength   - the urn of the AuthnContextClassRef returned
-
-If an error occurs while resolving the artifact or while validating the
-resulting assertion, an exception will be thrown.
+contents returned as an L<Authen::NZigovt::ResolutionResponse> object.  If an
+unexpected error occurs while resolving the artifact or while validating the
+resulting assertion, an exception will be thrown.  Expected error conditions
+(eg: timeouts, user presses 'Cancel' etc) will not throw an exception, but will
+return a response object that can be interrogated to determine the nature of
+the error.  The calling application may wish to log the expected errors with
+a severity of 'WARN' or 'INFO'.
 
 =head2 now_as_iso
 
-Convenience method returns the current time formatted as an ISO date/time string.
+Convenience method returns the current time (UTC) formatted as an ISO date/time
+string.
 
 
 =head1 SEE ALSO

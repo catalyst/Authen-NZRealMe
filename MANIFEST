@@ -5,6 +5,7 @@ lib/Authen/NZigovt/AuthenRequest.pm
 lib/Authen/NZigovt/IdentityProvider.pm
 lib/Authen/NZigovt/LogonStrength.pm
 lib/Authen/NZigovt/ResolutionRequest.pm
+lib/Authen/NZigovt/ResolutionResponse.pm
 lib/Authen/NZigovt/ServiceProvider.pm
 lib/Authen/NZigovt/ServiceProvider/Builder.pm
 lib/Authen/NZigovt/XMLSig.pm

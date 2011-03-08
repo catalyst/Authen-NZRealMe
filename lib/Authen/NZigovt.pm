@@ -41,7 +41,7 @@ See the C<--help> option for more information.
 =cut
 
 
-our $VERSION = '0.01';
+our $VERSION = '1.00';
 
 
 my %class_map = (
@@ -50,6 +50,7 @@ my %class_map = (
     xml_signer          => 'Authen::NZigovt::XMLSig',
     sp_builder          => 'Authen::NZigovt::ServiceProvider::Builder',
     resolution_request  => 'Authen::NZigovt::ResolutionRequest',
+    resolution_response => 'Authen::NZigovt::ResolutionResponse',
     authen_request      => 'Authen::NZigovt::AuthenRequest',
     logon_strength      => 'Authen::NZigovt::LogonStrength',
 );
@@ -190,8 +191,10 @@ request ID in your application session state:
 
 Once the user has logged in they will be redirected back to your application
 and passed an 'artifact'.  You will use this API to resolve the artifact and
-validate the resulting assertion.  The result will be a hashref of information
-of which you are probably only interested in the 'FLT' (Federated Logon Tag).
+validate the resulting assertion.  The result will be a response object which
+you can query to get the 'FLT' (Federated Logon Tag) on success, or details of
+any error which may have occurred.
+
 It is your responsibility to create a persistent association in your
 application data store between your user record and the igovt FLT for that
 user.
@@ -202,7 +205,28 @@ user.
           request_id => $my_app->get_state('igovt_request_id'),
       );
   };
-  # Check for errors in $@, get FLT from $resp->{flt}
+  if($@) {
+      # handle catastrophic failures (e.g.: malformed response) here
+  }
+  if($resp->is_success) {
+      $my_app->set_state(igovt_flt => $resp->flt);
+      # ... redirect to main menu etc
+  }
+  elsif($resp->is_timeout) {
+      # Present logon screen again with message
+  }
+  elsif($resp->is_cancel) {
+      # Present logon screen again with message
+  }
+  elsif($resp->is_not_registered) {
+      # Only happens if allow_create set to false
+      # and user has a logon - but not for our site
+  }
+  else {
+      # Some other failure occurred, user might like to try again later.
+      # Should present $resp->status_message to user and also give contact
+      # details for igovt Help Desk
+  }
 
 For more details, see L<Authen::NZigovt::ServiceProvider>.
 
