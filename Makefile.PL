@@ -7,7 +7,7 @@ use ExtUtils::MakeMaker;
 
 WriteMakefile(
     NAME                => 'Authen::NZigovt',
-    AUTHOR              => q{Grant McLean <grantm@cpan.org>},
+    AUTHOR              => q{Grant McLean <grantm@catalyst.net.nz>},
     VERSION_FROM        => 'lib/Authen/NZigovt.pm',
     ABSTRACT_FROM       => 'lib/Authen/NZigovt.pm',
     ($ExtUtils::MakeMaker::VERSION >= 6.3002
@@ -25,7 +25,6 @@ WriteMakefile(
         'Crypt::OpenSSL::X509'     => 0,
         'Digest::SHA1'             => 0,
         'IO::Compress::RawDeflate' => 0,
-        'Term::ReadLine::Gnu'      => 0,
     },
     EXE_FILES           => [ qw(bin/nzigovt) ],
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
