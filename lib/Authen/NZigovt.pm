@@ -228,6 +228,14 @@ user.
       # details for igovt Help Desk
   }
 
+Note: there are two different categories of 'error': the C<resolve_artifact()>
+method might throw an exception (caught by eval, details in $@); or a response
+object might be returned but with C<< $resp->is_success >> set to false.  The
+details of an exception should be logged, but not displayed back to the user.
+In the event that your application displays the contents of
+C<< $resp->status_message >> you should ensure that you apply appropriate HTML
+escaping.
+
 For more details, see L<Authen::NZigovt::ServiceProvider>.
 
 
