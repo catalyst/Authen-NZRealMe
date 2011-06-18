@@ -1,6 +1,6 @@
 MANIFEST.SKIP
-\.cvsignore
-\bCVS\b
+\.gitignore
+^\.git
 .*\.swp$
 ^MANIFEST\.
 ^Makefile$
