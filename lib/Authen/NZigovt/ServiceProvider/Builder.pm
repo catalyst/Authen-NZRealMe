@@ -29,12 +29,12 @@ service. The format for this value is:
 EOF
 
     url_assertion_consumer => <<EOF,
-After a login is complete, which URL on your site should the IdP redirect
+After a user has logged on, which URL on your site should the IdP redirect
 the user back to?
 EOF
 
     url_single_logout => <<EOF,
-After a user has logged out, which URL on your site should the IdP redirect
+After a user has logged off, which URL on your site should the IdP redirect
 the user back to?
 EOF
 

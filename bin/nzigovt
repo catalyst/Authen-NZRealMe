@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 ##############################################################################
 #
-# Tools for interacting with the New Zealand 'igovt Login Service'
+# Tools for interacting with the New Zealand 'igovt Logon Service'
 # (see: https://i.govt.nz/ ).
 #
 # These tools ARE NOT produced by, nor endorsed by the Department of Internal
-# Affairs who operate the igovt login service.  They are merely an implemention
+# Affairs who operate the igovt logon service.  They are merely an implemention
 # of the published protocols.
 #
 # For more information, see:
@@ -44,12 +44,11 @@ if($@) {
 
 exit 0;
 
-
 __END__
 
 =head1 NAME
 
-nzigovt - Tools for interacting with the New Zealand 'igovt Login Service'
+nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
 
 =head1 SYNOPSIS
 
