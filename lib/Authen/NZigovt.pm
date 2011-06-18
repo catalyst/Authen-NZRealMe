@@ -41,9 +41,6 @@ See the C<--help> option for more information.
 =cut
 
 
-our $VERSION = '1.00';
-
-
 my %class_map = (
     service_provider    => 'Authen::NZigovt::ServiceProvider',
     identity_provider   => 'Authen::NZigovt::IdentityProvider',

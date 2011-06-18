@@ -1,5 +1,8 @@
-Revision history for Authen-NZigovt
+Revision history for {{$dist->name}}
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+{{$NEXT}}
+    - add Dist::Zilla configs for managing CPAN releases
+
+1.00     2011-02-14 12:00:00 Pacific/Auckland
+    - in-house 'release'
 
