@@ -151,10 +151,16 @@ sub _check_conf {
         sp-sign-crt.pem sp-sign-key.pem sp-ssl-crt.pem sp-ssl-key.pem
     );
     if(@missing) {
+        my $hint = "Use 'nzigovt make-certs' to generate certificates";
+        if(not grep /-key.pem/, @missing  and  -e "$dir/sp-sign.csr") {
+            $hint = "You must save the signed certificate files you received "
+                  . "from the CA\n(Certification Authority) using the "
+                  . "filenames listed above.";
+        }
         die join("\n",
             "The following key-pair files are missing:",
             map { " * $_" } @missing,
-        ) . "\nSee perldoc Authen::NZigovt for more details\n"
+        ) . "\n$hint\n"
     }
 
     warn "WARNING: $dir/metadata-idp.xml does not exist\n"
