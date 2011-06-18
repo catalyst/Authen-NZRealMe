@@ -25,7 +25,10 @@ my(%opt);
 
 if(!GetOptions(\%opt,
     'help|?',
-    'conf_dir|conf-dir|c=s'
+    'conf_dir|conf-dir|c=s',
+    'env=s',
+    'org=s',
+    'domain=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
 }
@@ -63,7 +66,10 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
 
   Options:
 
-   --conf-dir  pathname of directory containing metadata & cert files
+   --conf-dir <path>  pathname of directory containing metadata & cert files
+   --env <name>       target environment (must be: 'mts', 'ite' or 'prod')
+   --org <name>       organisation/agency name, e.g.: "Department of Innovation"
+   --domain <name>    agency site domain e.g.: innovation.govt.nz
 
 =head1 DESCRIPTION
 
@@ -79,18 +85,24 @@ The following commands are available:
 
 =over 4
 
+=item make-certs
+
+Generate two certificate/key pairs - one for signing and one for mutual SSL
+encryption.  This step is not required for integrating with the development
+environment ('MTS') since certficates will be provided to you.  For integration
+with the test environment ('ITE') two self-signed certificates will be
+generated.  For integration with the production environment ('PROD') two CSRs
+(Certificate Signing Requests) will be generated which you will then use to get
+signed certificates issued from an approved CA (Certification Authority).
+
 =item make-meta
 
 Generate (or edit) a Service Provider metadata file and save it with a digital
 signature.
 
-=item make-certs
-
-Generates two certificate/key pairs, for signing and SSL encryption.
-
 =item make-bundle
 
-Creates a ZIP file containing the metadata and certificate files needed by
+Create a ZIP file containing the metadata and certificate files needed by
 the Identity Provider.
 
 =item make-req
@@ -126,6 +138,19 @@ expire.
 Specify the path to the directory containing the metadata files and
 certificate/key-pair files for signing requests and encrypting SSL traffic.
 See C<< perldoc Authen::NZigovt >> for more information about config files.
+
+=item B<< --env <name> >>
+
+This option can be used with the C<make-certs> command and specifies the
+target environment for the certificates.  Acceptable values are 'mts', 'ite'
+and 'prod'.
+
+If you do not provide any certificate parameters, you will be prompted.
+
+=item B<< --org "<name>" >>
+
+The service provider agency/organisation name which should be used in the
+certificates.
 
 =item B<< --help >> (alias -?)
 

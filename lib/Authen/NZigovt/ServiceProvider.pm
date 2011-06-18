@@ -102,6 +102,15 @@ sub generate_saml_id {
 }
 
 
+sub generate_certs {
+    my($class, $conf_dir, %args) = @_;
+
+    Authen::NZigovt->class_for('sp_cert_factory')->generate_certs(
+        $conf_dir, %args
+    );
+}
+
+
 sub build_new {
     my($class, %opt) = @_;
 

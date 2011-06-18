@@ -46,6 +46,7 @@ my %class_map = (
     identity_provider   => 'Authen::NZigovt::IdentityProvider',
     xml_signer          => 'Authen::NZigovt::XMLSig',
     sp_builder          => 'Authen::NZigovt::ServiceProvider::Builder',
+    sp_cert_factory     => 'Authen::NZigovt::ServiceProvider::CertFactory',
     resolution_request  => 'Authen::NZigovt::ResolutionRequest',
     resolution_response => 'Authen::NZigovt::ResolutionResponse',
     authen_request      => 'Authen::NZigovt::AuthenRequest',
@@ -81,23 +82,26 @@ sub run_command {
 }
 
 
-sub _dispatch_make_meta {
-    my($class, $opt) = @_;
-
-    die "Need --conf-dir option\n" unless $opt->{conf_dir};
-    my $sp = $class->class_for('service_provider')->build_new(
-        conf_dir => $opt->{conf_dir},
-    );
-    print "File saved\n" if $sp;
-}
-
-
 sub _dispatch_make_certs {
     my($class, $opt) = @_;
 
-    # TODO
-    print "This feature is not yet implemented\n";
-    exit 1;
+    my %args;
+    $args{env}    = $opt->{env}    if $opt->{env};
+    $args{org}    = $opt->{org}    if $opt->{org};
+    $args{domain} = $opt->{domain} if $opt->{domain};
+    $class->class_for('service_provider')->generate_certs(
+        _conf_dir($opt), %args
+    );
+}
+
+
+sub _dispatch_make_meta {
+    my($class, $opt) = @_;
+
+    my $sp = $class->class_for('service_provider')->build_new(
+        conf_dir => _conf_dir($opt),
+    );
+    print "File saved\n" if $sp;
 }
 
 
@@ -157,6 +161,17 @@ sub _dispatch_resolve {
     foreach my $key (sort keys %$result) {
         print "$key: $result->{$key}\n";
     }
+}
+
+
+sub _conf_dir {
+    my($opt) = @_;
+
+    return $opt->{conf_dir} if $opt->{conf_dir};
+    my $cmnd = (caller(1))[3];
+    $cmnd =~ s/^.*::_dispatch_//;
+    $cmnd =~ s/_/-/g;
+    die "$cmnd command needs --conf-dir option\n" unless $opt->{conf_dir};
 }
 
 1;
