@@ -4,7 +4,9 @@ use warnings;
 use strict;
 use feature "switch";
 
-use Term::ReadLine;
+use Term::ReadLine  qw();
+use File::Path      qw(rmtree);
+use File::Copy      qw(copy);
 
 my $prog_name = 'nzigovt';
 my $term      = undef;
@@ -170,6 +172,46 @@ sub _prompt_yes_no {
         return 1 if $resp =~ /^(y|yes)$/i;
         return 0 if $resp =~ /^(n|no)$/i;
     }
+}
+
+
+sub make_bundle {
+    my($self, $sp) = @_;
+
+    my($sp_name) = $sp->entity_id =~ m{//([^/]+)/};
+    $sp_name =~ s{([.][^.]+){2}$}{};
+    $sp_name =~ s{^(www|secure)[.]}{};
+    die "Error determining entity name" unless $sp_name;
+
+    my $idp_name = $sp->idp->entity_id;
+    my($env) = $idp_name =~ m{www[.](mts|ite)};
+    $env ||= 'prod';
+
+    my $work_dir = $sp->conf_dir . '/bundle';
+    rmtree($work_dir) if -e $work_dir;
+
+    mkdir($work_dir) or die "mkdir($work_dir)";
+    chdir($work_dir) or die "chdir($work_dir)";
+
+    my $zip_file      = $sp->conf_dir . "/${env}_sp_${sp_name}.zip";
+    my $metadata_file = "${env}_sp_saml_metadata_${sp_name}.xml";
+    my $signing_cert  = "${env}_sp_saml_sign_${sp_name}.cer";
+    my $ssl_cert      = "${env}_sp_mutual_ssl_${sp_name}.cer";
+
+    print "Assembling metadata and certificate files\n";
+
+    copy('../metadata-sp.xml' => $metadata_file);
+    copy('../sp-sign-crt.pem' => $signing_cert);
+    copy('../sp-ssl-crt.pem'  => $ssl_cert);
+
+    system('zip', $zip_file, $metadata_file, $signing_cert, $ssl_cert);
+
+
+    chdir('..') or die "chdir('..')";
+    rmtree($work_dir);
+
+    return $zip_file;
+
 }
 
 

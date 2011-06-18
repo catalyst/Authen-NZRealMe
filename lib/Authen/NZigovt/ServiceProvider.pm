@@ -139,6 +139,14 @@ sub build_new {
 }
 
 
+sub make_bundle {
+    my $class = shift;
+
+    my $sp = $class->new(@_);
+    return Authen::NZigovt->class_for('sp_builder')->make_bundle($sp);
+}
+
+
 sub _load_metadata {
     my $self = shift;
 

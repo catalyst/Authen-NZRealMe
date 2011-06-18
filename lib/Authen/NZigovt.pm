@@ -105,12 +105,13 @@ sub _dispatch_make_meta {
 }
 
 
-sub _dispatch_make_idp_bundle {
+sub _dispatch_make_bundle {
     my($class, $opt) = @_;
 
-    # TODO
-    print "This feature is not yet implemented\n";
-    exit 1;
+    my $file = $class->class_for('service_provider')->make_bundle(
+        conf_dir => _conf_dir($opt),
+    );
+    print "Created metadata bundle for IDP at: $file\n";
 }
 
 
@@ -118,7 +119,7 @@ sub _dispatch_make_req {
     my($class, $opt) = @_;
 
     my $sp = $class->class_for('service_provider')->new(
-        conf_dir => $opt->{conf_dir},
+        conf_dir => _conf_dir($opt),
     );
     my $req = $sp->new_request(
         allow_create => 0,
@@ -143,7 +144,7 @@ sub _dispatch_resolve {
     my $request_id = shift or die "Must provide ID from original request\n";
 
     my $sp = $class->class_for('service_provider')->new(
-        conf_dir => $opt->{conf_dir},
+        conf_dir => _conf_dir($opt),
     );
     my %args = (
         artifact   => $artifact,
