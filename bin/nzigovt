@@ -28,7 +28,7 @@ if(!GetOptions(\%opt,
     'conf_dir|conf-dir|c=s',
     'env=s',
     'org=s',
-    'org_unit=s',
+    'org_unit|org-unit=s',
     'domain=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
