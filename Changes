@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.02      2011-06-20 11:41:22 Pacific/Auckland
     - add shortcut service_provider method to main module
     - implement make-certs command
     - implement make-bundle command
