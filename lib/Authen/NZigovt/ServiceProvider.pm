@@ -777,11 +777,23 @@ Used by the request classes to generate a unique identifier for each request.
 It accepts one argument, being a string like 'AuthenRequest' to identify the
 type of request.
 
+=head2 generate_certs
+
+Called by the C<< nzigovt make-certs >> command to run an interactive Q&A
+session to generate either self-signed certificates or Certificate Signing
+Requests (CSRs).  Delegates to L<Authen::NZigovt::ServiceProvider::CertFactory>
+
 =head2 build_new
 
 Called by the C<< nzigovt make-meta >> command to run an interactive Q&A
 session to initialise or edit the contents of the Service Provider metadata
-file.
+file.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
+
+=head2 make_bundle
+
+Called by the C<< nzigovt make-bundle >> command to create a zip archive of
+the files needed by the IdP.  The archive will include the SP metadata and
+certificate files.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
 
 =head2 new_request( options )
 
@@ -815,7 +827,7 @@ Default: 'low'.
 =item relay_state => string
 
 User-supplied string value that will be returned as a URL parameter to the
-assertion consumer service.
+assertion consumer service.as_url
 
 =back
 
@@ -836,10 +848,10 @@ contacts the Identity Provider to resolve it to an FLT.  Parameters (including
 the original request_id) must be supplied as key => value pairs, for example:
 
   my $resp = $sp->resolve_artifact(
-      artifact       => $req->param('SAMLart'),
-      request_id     => $state->{igovt_request_id},
-      logon_strength => 'low',        # optional
-      strength_match => 'minimum',    # optional - default: 'minimum'
+      artifact        => $framework->param('SAMLart'),
+      request_id      => $framework->state('igovt_request_id'),
+      logon_strength  => 'low',        # optional
+      strength_match  => 'minimum',    # optional - default: 'minimum'
   );
 
 The assertion returned by the Identity Provider will be validated and its

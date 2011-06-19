@@ -108,7 +108,7 @@ C<resolve_artifact> method on the service provider object.
 =head2 artifact
 
 Accessor method to return the (base64 encoded) artifact string as returned
-by the NZ igovt logon service Identity Provider
+by the NZ igovt logon service Identity Provider.
 
 =head2 request_id
 

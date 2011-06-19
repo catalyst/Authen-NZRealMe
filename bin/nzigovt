@@ -62,6 +62,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
    make-bundle generate a zip archive of metadata and certificate files
    make-req    generate a SAML AuthnRequest, encoded as a URL
    dump-req    dissect the provided URL and dump the XML
+   resolve     resolve an artifact to an FLT
    help        detailed help message
 
   Options:
@@ -116,6 +117,9 @@ example:
 
   nzigovt -c /etc/igovt-conf make-req | nzigovt -c /etc/igovt-conf dump-req
 
+This utility can be used to dump AuthnRequests produced by any SAML
+implementation.
+
 =item resolve
 
 Takes a URL containing a SAML artifact; decodes it; generates a SAML
@@ -123,8 +127,8 @@ ArtifactResolve request; sends the request to the IdP using SOAP over the SSL
 back-channel; validates the resulting assertion; and extracts the FLT
 (Federated Logon Tag) from the response.
 
-Note: in practice a SML artifact very soon after it is generated or it will
-expire.
+Note: in practice a SML artifact must be resolved very soon after it is
+generated or it will expire.
 
 =back
 

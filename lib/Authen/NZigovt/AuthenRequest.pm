@@ -223,6 +223,13 @@ provider using the HTTP-Redirect binding.
 Constructor.  Should not be called directly.  Instead, call the C<new_request>
 method on the service provider object.
 
+The following named parameters are recognised:
+
+  allow_create     boolean       (default: false)
+  force_auth       boolean       (default: true)
+  relay_state      short string  (default: none)
+  auth_strength    see below     (default: 'low')
+
 =head2 request_id
 
 Accessor for the generated unique ID for this request.
@@ -261,8 +268,10 @@ If not provided, this parameter will default to 'true'.
 
 =head2 auth_strength
 
-Accessor for the C<auth_strength> parameter optionally passed to the constructor.
-If not provided, this parameter will default to the URN for low strength logons.
+Accessor for the C<auth_strength> parameter optionally passed to the
+constructor.  If a value is provided, it will be passed to the constructor for
+L<Authen::NZigovt::LogonStrength>.  If not provided, this parameter will
+default to the URN for low strength logons.
 
 =head2 as_url
 

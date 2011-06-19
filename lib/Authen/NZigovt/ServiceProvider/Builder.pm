@@ -228,11 +228,14 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ServiceProviderBuilder - interactively create/edit Service Provider metadata
+Authen::NZigovt::ServiceProvider::Builder - interactively create/edit Service Provider metadata
 
 =head1 DESCRIPTION
 
-This class is used for creating and editing the Service Provider metadata file.
+This class is used for creating and editing the Service Provider metadata file
+as well as generating a zip archive of the files (metadata and certificates)
+needed by the IdP.
+
 
 =head1 METHODS
 
@@ -240,6 +243,13 @@ This class is used for creating and editing the Service Provider metadata file.
 
 Called by the C<< nzigovt make-meta >> command to create or edit the Service
 Provider metadata file through a series of interactive questions and answers.
+
+=head2 make_bundle
+
+Called by the C<< nzigovt make-bundle >> command to create a zip archive of
+the files needed by the IdP.  The archive will include the SP metadata and
+certificate files.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
+
 
 =head1 SEE ALSO
 

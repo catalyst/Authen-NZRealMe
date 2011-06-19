@@ -20,7 +20,16 @@ be used for:
 
 =item *
 
+generating certificate/key pairs for signing and SSL encryption
+
+=item *
+
 creating/editing the Service Provider metadata file
+
+=item *
+
+creating a bundle (zip file) containing metadata and certs for upload to the
+IdP
 
 =item *
 
@@ -36,7 +45,7 @@ resolving SAMLart artifact responses and validating the response
 
 =back
 
-See the C<--help> option for more information.
+Run C<< nzigovt --help >> for more information about using the command-line tool.
 
 =cut
 
@@ -180,14 +189,100 @@ sub _conf_dir {
 
 __END__
 
-=head1 SYNOPSIS
 
-Following successful configuration (see L<CONFIGURATION>), authentication
-proceeds in two phases.
+=head1 GETTING STARTED
 
-First, an AuthnRequest is generated and encoded as a URL.  You must arrange
-for the user's browser to be redirected to this URL, you must also save the
-request ID in your application session state:
+You cannot simply drop some config files in a directory and start
+authenticating users.  Your agency will need to establish a Service Provider
+role with the logon service and complete the required integration steps.  Your
+first step should be to make contact with the igovt logon service and arrange a
+meeting.
+
+
+=head1 CODE INTEGRATION
+
+To integrate the igovt logon service with your application, you will need to:
+
+=over 4
+
+=item 1
+
+complete a number of configuration steps (see L</CONFIGURATION> below)
+
+=item 2
+
+link this module into your application to initiate the logon (by redirecting
+the user to the igovt logon service) and to 'consume' the login information
+when the user is redirected back to your site
+
+=back
+
+To understand how this module must be linked into your application, it helps to
+understand the SAML protocol interaction that is followed for each user logon:
+
+  Agency Web Site                                 igovt logon server
+
+                     .-------------------------.
+                     | 1. user visits agency   |
+               .-----|    web site and clicks  |
+               |     |   'igovt logon' button  |
+               v     '-------------------------'
+  .-------------------------.
+  | 2. SAML AuthnRequest    |
+  |    passed back to user  |-------------------------.
+  |    via 302 redirect     |                         v
+  '-------------------------'           .--------------------------.
+   API call                             | 3. Logon service prompts |
+                                   .----|    for username/password |
+                                   v    '--------------------------'
+                      .------------------------.
+                      | 4. user enters         |
+                      |    username/password   |------.
+                      '------------------------'      v
+                                        .--------------------------.
+                                        | 5. SAML 'artifact'       |
+              .-------------------------|    returned via redirect |
+              v                         '--------------------------'
+ .-------------------------.
+ | 6. SAML ArtifactResolve |
+ |    sent direct to IdP   |--------------------------.
+ '-------------------------'                          v
+  API call                              .--------------------------.
+                                        | 7. SAML ArtifactResponse |
+              .-------------------------|    sent back to SP       |
+              v                         '--------------------------'
+ .-------------------------.
+ | 8. FLT to identify user |
+ |    extracted from resp. |
+ '-------------------------'
+  API call returns
+
+The igovt logon server is a SAML Identity Provider or 'IdP'.
+
+The agency web site is a SAML Service Provider or 'SP'.  The Authen::NZigovt
+module implements the SAML SP role on behalf of the agency web app.
+
+To integrate this module with your application, you need to make two calls to
+its API: the first to generate the authentication request (step 2 above) and
+the second to resolve the returned artifact and return the Federated Logon Tag
+(FLT) which identifies the user (steps 6 thru 8).
+
+It is your responsibility to create a persistent association in your
+application data store between your user record and the igovt FLT for that
+user.
+
+=head2 Authentication Request
+
+You will add the igovt logon button image to your application templates.  The
+button does not link directly to the igovt logon server, but instead links to
+your application which in turn uses the Authen::NZigovt module to generate a
+SAML AuthnRequest message encoded in a URL and returns it as a 302 redirect.
+
+The request includes a unique 'Request ID' which you must save in the user
+session for use when resolving the artifact response later.  The example below
+uses generic framework method calls to save the Request ID and return the
+redirect URL, you will need to replace these with specific calls for the
+framework you are using:
 
   use Authen::NZigovt;
 
@@ -196,33 +291,67 @@ request ID in your application session state:
   );
   my $req = $sp->new_request(
       allow_create => 0,         # set to 1 for initial registration
+      # other options here
   );
 
-  $my_app->set_state(igovt_request_id => $req->request_id);
+  $framework->set_state(igovt_request_id => $req->request_id);
 
-  $framework->redirect($req->request_id);
+  return $framework->redirect($req->as_url);  # Use HTTP status 302
 
-Once the user has logged in they will be redirected back to your application
-and passed an 'artifact'.  You will use this API to resolve the artifact and
-validate the resulting assertion.  The result will be a response object which
-you can query to get the 'FLT' (Federated Logon Tag) on success, or details of
-any error which may have occurred.
+Your code does not need to explicitly reference the igovt logon service domain
+or URL - these details are handled automatically by the configuration.
 
-It is your responsibility to create a persistent association in your
-application data store between your user record and the igovt FLT for that
-user.
+=head2 Artifact Resolution
+
+Once the user has provided a valid username and password to the logon service,
+they will be redirected back to your application and an 'artifact' will be
+passed in a URL parameter called 'SAMLart'.  You set up which URL you want the
+logon service to redirect back to when you generate your service provider
+metadata (see L</CONFIGURATION>).  This URL is known as the Assertion Consumer
+Service or 'ACS'.
+
+A single method call is used to:
+
+=over 4
+
+=item *
+
+generate a SAML ArtifactResolve message
+
+=item *
+
+pass it to the IdP over a backchannel
+
+=item *
+
+accept the SAML ArtifactResponse message
+
+=item *
+
+validate the assertion
+
+=item *
+
+extract and return the FLT (or error detail) in a response object
+
+=back
+
+The method call will return a response object containing either an FLT or
+details of the condition which meant the logon was unsuccessful.  In the case
+of an unexpected error, the method call will generate an exception which you
+will need to catch and log.
 
   my $resp = eval {
       $sp->resolve_artifact(
-          artifact   => $req->param('SAMLart'),
-          request_id => $my_app->get_state('igovt_request_id'),
+          artifact   => $framework->param('SAMLart'),
+          request_id => $framework->get_state('igovt_request_id'),
       );
   };
   if($@) {
       # handle catastrophic failures (e.g.: malformed response) here
   }
   if($resp->is_success) {
-      $my_app->set_state(igovt_flt => $resp->flt);
+      $framework->set_state(igovt_flt => $resp->flt);
       # ... redirect to main menu etc
   }
   elsif($resp->is_timeout) {
@@ -233,7 +362,7 @@ user.
   }
   elsif($resp->is_not_registered) {
       # Only happens if allow_create set to false
-      # and user has a logon - but not for our site
+      # and user does not have a logon for our site
   }
   else {
       # Some other failure occurred, user might like to try again later.
@@ -249,47 +378,39 @@ In the event that your application displays the contents of
 C<< $resp->status_message >> you should ensure that you apply appropriate HTML
 escaping.
 
-For more details, see L<Authen::NZigovt::ServiceProvider>.
+For reference documentation about the Service Provider API, see
+L<Authen::NZigovt::ServiceProvider>.
 
 
 =head1 CONFIGURATION
 
-This module is configuration-driven - you simply need to specify the path to
-the config directory and it picks up everything it needs to talk to the NZ
-igovt logon service Identity Provider from metadata files and
+This module is configuration-driven - when making an API call, you specify the
+path to the config directory and the module picks up everything it needs to
+talk to the NZ igovt logon service Identity Provider from metadata files and
 certificate/key-pair files used for signing/encryption.
 
-The names of the files in the config directory are hard-coded so you just need
-to point the module at the right directory.  The filenames are:
+=head2 Config Files Overview
+
+The files in the config directory use the following naming convention so you
+just need to point the module at the right directory.  The filenames are:
 
 =over 4
 
-=item metadata-sp.xml
+=item C<metadata-sp.xml>
 
 This file contains config parameters for the 'Service Provider' - your end of
-the authentication dialog.  You can generate or edit this file interactively
-from the command-line with the command:
+the authentication dialog.  Once you have generated the SP metadata file (see:
+L</Generating Config Files>) you will need to provide it to the NZ igovt logon
+service to install at their end.  You will need to generate separate metadata
+files for each of your development, staging and production environments.
 
-  nzigovt --conf-dir /path/to/conf/dir make-meta
-
-The directory must already exist and must already contain the signing key-pair
-files (described below).
-
-Note: You can't simply edit the XML metadata file, because a digital signature
-is added when the file is saved.
-
-Once you have generated the SP metadata file you will need to provide it to the
-NZ igovt logon service to install at their end.  You will need to generate
-separate metadata files for each of your development, staging and production
-environments.
-
-=item metadata-idp.xml
+=item C<metadata-idp.xml>
 
 The IdP or Identity Provider metadata file will be provided to you by the NZ
 igovt logon service.  You will simply need to copy it to the config directory
 and give it the correct name.
 
-=item sp-sign-crt.pem
+=item C<sp-sign-crt.pem>
 
 This certificate file is used for generating digital signatures for the SP
 metadata file and SAML authentication requests.  For your initial integration
@@ -298,22 +419,122 @@ files will be provided to you.  For staging (ITE) and production, you will need
 to generate your own and provide the certificate files (not the private key
 files) to the igovt logon service.
 
-=item sp-sign-key.pem
+=item C<sp-sign-key.pem>
 
 This private key is paired with the F<sp-sign-crt.pem> certificate.
 
-=item sp-ssl-crt.pem
+=item C<sp-ssl-crt.pem>
 
 This certificate is used for negotiating an SSL connection on the backchannel
 to the IdP artifact resolution service.
 
-=item sp-ssl-key.pem
+=item C<sp-ssl-key.pem>
 
 This private key is paired with the F<sp-ssl-crt.pem> certificate.
 
 =back
 
-=head1 METHODS
+=head2 Generating Config Files
+
+You must first decide which directory your config files will be stored in.
+The examples below assume a config directory path of C</etc/nzigovt>.
+
+=head3 Certificates
+
+Once you've decided on a location, you need to generate two SSL certificates
+and their corresponding private keys.  The first will be used for signing the
+SAML AuthnRequest messages and the second will be used for mutual SSL
+encryption of communications over the back-channel.
+
+It is not necessary to generate the certificates on the same machine where
+they will be used however you must have the C<openssl> command-line tools
+installed on the machine where you wish to generate them.
+
+The process for generating certificates will depend on which environment you
+are connecting to:
+
+=over 4
+
+=item MTS (Development)
+
+You do not need to generate certificates at all for the MTS environment -
+simply use the files provided in the MTS integration resources pack.  Copy them
+into your config directory and rename as follows:
+
+  mts_mutualssl_saml_sp.pem => sp-sign-key.pem
+  mts_mutualssl_saml_sp.cer => sp-sign-crt.pem
+  mts_saml_sp.pem           => sp-ssl-key.pem
+  mts_saml_sp.cer           => sp-ssl-crt.pem
+
+=item ITE (Staging)
+
+For the ITE environment you can generate self-signed certs.  The C<nzigovt>
+tool can prompt you interactively for the required parameters:
+
+  nzigovt --conf-dir /etc/nzigovt make-certs
+
+or you can provide them on the command-line:
+
+  nzigovt --conf-dir /etc/nzigovt make-certs --env ITE \
+    --org="Department of Innovation" --domain="innovation.govt.nz"
+
+=item PROD (Production)
+
+For the production environment you can use the C<nzigovt> tool to generate
+Certificate Signing Requests which you will then submit to a Certification
+Authority who will issue signed certificate files.  Save them in the config
+directory using the filenames listed above.
+
+  nzigovt --conf-dir /etc/nzigovt make-certs --env PROD ...
+
+=back
+
+=head3 SP Metadata
+
+After you have generated the certificates, you can generate a metadata file
+with the command:
+
+  nzigovt --conf-dir /etc/nzigovt make-meta
+
+You will be prompted to provide the necessary details and can re-run the
+command to revise your answers.
+
+Note: You can't simply edit the XML metadata file, because a digital signature
+is added when the file is saved.
+
+You will need to provide the SP metadata file to the igovt logon service (via
+an upload to the shared workspace).  For ITE and PROD you will also need to
+provide the certificate files.  You can assemble a 'bundle' of the required
+files with this command:
+
+  nzigovt --conf-dir /etc/nzigovt make-bundle
+
+
+=head1 TESTING
+
+Normally your application would generate an authentication request URL and
+redirect the client to it, however it is also possible to generate one from the
+command-line:
+
+  nzigovt --conf-dir /etc/nzigovt make-req
+
+You can paste this URL into a browser and complete a log on.  Once you have
+logged on you will be redirected back to the URL for the ACS (as specified in
+the SP metadata file that you uploaded).  You can copy the ACS URL from your
+browser and paste it into the following command to resolve the artifact passed
+in the URL to an FLT:
+
+  nzigovt --conf-dir /etc/nzigovt resolve <ACS URL> <Request ID>
+
+The ACS URL will contain special characters that may need to be quoted.  You'll
+also need to supply the Request ID which was output by the original C<make-req>
+command.
+
+
+=head1 API REFERENCE
+
+The C<Authen::NZigovt> class provides entry points for interactions with the
+igovt logon service.
 
 =head2 class_for( identifier )
 
@@ -335,13 +556,12 @@ C<< nzigovt --help >>
 
 =cut
 
-
-=head1 RELATED MODULES
+=head2 Related Classes
 
 Your application should only need to directly interface with the Service
-Provider module (as shown in the L<SYNOPSIS> above).  The service provider will
-delegate to other classes as required.  Documentation is available for these
-other classes.
+Provider module (as shown above).  The service provider will delegate to other
+classes as required.  Reference documentation is available for these other
+classes.
 
 =over 4
 
@@ -355,11 +575,11 @@ L<Authen::NZigovt::ServiceProvider::Builder>
 
 =item *
 
-L<Authen::NZigovt::IdentityProvider>
+L<Authen::NZigovt::ServiceProvider::CertFactory>
 
 =item *
 
-L<Authen::NZigovt::ResolutionRequest>
+L<Authen::NZigovt::IdentityProvider>
 
 =item *
 
@@ -367,12 +587,32 @@ L<Authen::NZigovt::AuthenRequest>
 
 =item *
 
+L<Authen::NZigovt::ResolutionRequest>
+
+=item *
+
+L<Authen::NZigovt::ResolutionResponse>
+
+=item *
+
 L<Authen::NZigovt::LogonStrength>
+
+=item *
+
+L<Authen::NZigovt::XMLSig>
 
 =back
 
 
 =head1 BUGS
+
+The current implementation does not attempt any validation of the SSL cert
+presented by the IdP when connecting over the backchannel to resolve an
+artifact.  However, the resulting assertion I<is> checked to confirm that a) it
+is a response to the specified request_id I<and> b) the response has a valid
+digital signature (using the IdP public key from the metadata file).
+
+There is no implementation of SingleLogOut functionality.
 
 Please report any bugs or feature requests to
 C<bug-authen-nzigovt at rt.cpan.org>, or through the web interface at
@@ -395,6 +635,10 @@ You can also look for information at:
 
 L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Authen-NZigovt>
 
+=item * Source code repository on GitHub
+
+L<https://github.com/grantm/Authen-NZigovt>
+
 =item * AnnoCPAN: Annotated CPAN documentation
 
 L<http://annocpan.org/dist/Authen-NZigovt>
@@ -408,6 +652,9 @@ L<http://cpanratings.perl.org/d/Authen-NZigovt>
 L<http://search.cpan.org/dist/Authen-NZigovt/>
 
 =back
+
+Commercial support and consultancy is available through Catalyst IT Limited
+L<http://www.catalyst.net.nz>.
 
 
 =head1 LICENSE AND COPYRIGHT

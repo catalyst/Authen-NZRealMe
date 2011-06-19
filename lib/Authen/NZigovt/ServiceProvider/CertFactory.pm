@@ -37,20 +37,20 @@ sub generate_certs {
     my($class, $conf_dir, %args) = @_;
 
     if(not keys %args) {
-        %args = $class->prompt_for_parameters() or exit 1;
+        %args = $class->_prompt_for_parameters() or exit 1;
     }
-    check_args(\%args);
+    _check_args(\%args);
     $args{conf_dir} = $conf_dir;
 
     die "'$conf_dir' is not a directory\n" unless -d "$conf_dir/.";
 
     my $key_file = "$conf_dir/sp-sign-key.pem";
-    generate_private_key($key_file);
-    generate_certificate('sig', $key_file, \%args);
+    _generate_private_key($key_file);
+    _generate_certificate('sig', $key_file, \%args);
 
     $key_file = "$conf_dir/sp-ssl-key.pem";
-    generate_private_key($key_file);
-    generate_certificate('ssl', $key_file, \%args);
+    _generate_private_key($key_file);
+    _generate_certificate('ssl', $key_file, \%args);
 
     if($args{env} eq 'prod') {
         print "\nSuccessfully generated two certificate signing requests.\n"
@@ -63,7 +63,7 @@ sub generate_certs {
 }
 
 
-sub prompt_for_parameters {
+sub _prompt_for_parameters {
     my($class) = @_;
     my $args   =  { };
 
@@ -128,7 +128,7 @@ sub _prompt_yes_no {
 }
 
 
-sub generate_private_key {
+sub _generate_private_key {
     my($key_path) = @_;
 
     system('openssl', 'genrsa', '-out', $key_path, '2048') == 0
@@ -136,7 +136,7 @@ sub generate_private_key {
 }
 
 
-sub generate_certificate {
+sub _generate_certificate {
     my($type, $key_path, $args) = @_;
 
     my($name, $out_base);
@@ -160,21 +160,21 @@ sub generate_certificate {
     }
     else {
         push @command, '-out', "${out_base}-crt.pem",
-            '-x509', '-set_serial', gen_serial();
+            '-x509', '-set_serial', _gen_serial();
     }
 
     system(@command) == 0 or exit 1;
 }
 
 
-sub gen_serial {
+sub _gen_serial {
     my @h = qw(0 1 2 3 4 5 6 7 8 9 a b c d e f);
 
     return '0x' . join '', @h[rand(8)], map { @h[rand(16)] } (1..15);
 }
 
 
-sub check_args {
+sub _check_args {
     my($args) = @_;
 
     die "Need organisation name to generate certs\n" unless $args->{org};
@@ -224,5 +224,52 @@ sub _validate_org {
 }
 
 
-
 1;
+
+
+__END__
+
+=head1 NAME
+
+Authen::NZigovt::ServiceProvider::CertFactory - generate certificates or CSRs
+
+=head1 DESCRIPTION
+
+This class is used for generating the certificates used for signing SAML
+AuthnRequest messages and for mutual SSL encryption of messages sent over the
+backchannel.
+
+For the ITE environment, self-signed certificates will be generated.  For
+production, CSRs will be generated for signing by a certification authority
+(CA).
+
+
+=head1 METHODS
+
+=head2 generate_certs
+
+Called by the C<< nzigovt make-certs >> command to run an interactive Q&A
+session to generate either self-signed certificates or Certificate Signing
+Requests (CSRs).
+
+
+=head1 SEE ALSO
+
+See L<Authen::NZigovt> for documentation index.
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2010-2011 the New Zealand Electoral Enrolment Centre
+
+Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of either: the GNU General Public License as published
+by the Free Software Foundation; or the Artistic License.
+
+See http://dev.perl.org/licenses/ for more information.
+
+=cut
+
+
