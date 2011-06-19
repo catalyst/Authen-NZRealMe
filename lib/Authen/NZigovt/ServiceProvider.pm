@@ -693,7 +693,7 @@ file.
 
 Constructor.  Should not be called directly.  Instead, call:
 
-  Authen::NZigovt->class_for('service_provider')->new( args );
+  Authen::NZigovt->service_provider( args );
 
 The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
 of the directory containing SP and IdP metadata files as well as certificate

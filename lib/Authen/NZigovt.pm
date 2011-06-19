@@ -63,6 +63,13 @@ my %class_map = (
 );
 
 
+sub service_provider {
+    my $class = shift;
+
+    return $class->class_for('service_provider')->new(@_);
+}
+
+
 sub class_for {
     my($class, $key) = @_;
     my $module = $class_map{$key} or die "No class defined for '$key'";
@@ -127,9 +134,7 @@ sub _dispatch_make_bundle {
 sub _dispatch_make_req {
     my($class, $opt) = @_;
 
-    my $sp = $class->class_for('service_provider')->new(
-        conf_dir => _conf_dir($opt),
-    );
+    my $sp  = $class->service_provider( conf_dir => _conf_dir($opt) );
     my $req = $sp->new_request(
         allow_create => 0,
     );
@@ -152,9 +157,7 @@ sub _dispatch_resolve {
     my $artifact   = shift or die "Must provide artifact or URL\n";
     my $request_id = shift or die "Must provide ID from original request\n";
 
-    my $sp = $class->class_for('service_provider')->new(
-        conf_dir => _conf_dir($opt),
-    );
+    my $sp   = $class->service_provider( conf_dir => _conf_dir($opt) );
     my %args = (
         artifact   => $artifact,
         request_id => $request_id,
@@ -286,9 +289,7 @@ framework you are using:
 
   use Authen::NZigovt;
 
-  my $sp = Authen::NZigovt->class_for('service_provider')->new(
-      conf_dir => $path_to_config_directory,
-  );
+  my $sp  = Authen::NZigovt->service_provider( conf_dir => $path_to_config_directory );
   my $req = $sp->new_request(
       allow_create => 0,         # set to 1 for initial registration
       # other options here
@@ -341,6 +342,7 @@ details of the condition which meant the logon was unsuccessful.  In the case
 of an unexpected error, the method call will generate an exception which you
 will need to catch and log.
 
+  my $sp   = Authen::NZigovt->service_provider( conf_dir => $path_to_config_directory );
   my $resp = eval {
       $sp->resolve_artifact(
           artifact   => $framework->param('SAMLart'),
@@ -534,24 +536,39 @@ command.
 =head1 API REFERENCE
 
 The C<Authen::NZigovt> class provides entry points for interactions with the
-igovt logon service.
+igovt logon service and is also responsible for dispatching the various
+command implemented by the C<nzigovt> command-line utility.
+
+=head2 service_provider( conf_dir => $path_to_config_directory )
+
+This method is the main entry point for the API.  It returns a service_provider
+object that will then be used to generate AuthnRequest messages and to resolve
+the returned artifacts.  Unless you have set up alternative class mappings (see
+below), this method is a simple wrapper for the
+L<Authen::NZigovt::ServiceProvider> constructor.
 
 =head2 class_for( identifier )
 
-Takes a class identifier (e.g.: C<service_provider>); locates the corresponding
-package; loads the package using C<require>; and returns the class name (e.g.:
-C<Authen::NZigovt::ServiceProvider>).
+This method forms half of a simple dependency injection framework.  Rather
+than hard-code the classnames for the various parts of the API, this method
+is used to turn a simple functional name (e.g.: C<'service_provider'>) into a
+classname like C<Authen::NZigovt::ServiceProvider>.  This method will also
+load the loads the package using C<require>.
+
+You would not usually call this method directly - instead you would use the
+C<service_provider> method which calls this.
 
 =head2 register_class( identifier => package )
 
-Overrides the default class mapping for the specified identifier.  You would
-typically use this method when you have written your own class which extends
-the behaviour of one of the default classes.
+This method forms the other half of the dependency injection implementation
+and is used to override the default mappings.  The most common reason to use
+this method is to inject mock object classnames for use during automated
+testing.
 
 =head2 run_command( command, args )
 
-This method is called by the C<nzigovt> command-line tool, to delegate
-tasks to the appropriate classes.  For more information, see
+This method is called by the C<nzigovt> command-line tool, to delegate tasks to
+the appropriate classes.  For more information about available commands, see
 C<< nzigovt --help >>
 
 =cut
