@@ -28,6 +28,7 @@ if(!GetOptions(\%opt,
     'conf_dir|conf-dir|c=s',
     'env=s',
     'org=s',
+    'org_unit=s',
     'domain=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
@@ -70,6 +71,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
    --conf-dir <path>  pathname of directory containing metadata & cert files
    --env <name>       target environment (must be: 'mts', 'ite' or 'prod')
    --org <name>       organisation/agency name, e.g.: "Department of Innovation"
+   --org-unit <name>  organisational unit, e.g.: "Innovation Labs"
    --domain <name>    agency site domain e.g.: innovation.govt.nz
 
 =head1 DESCRIPTION
@@ -155,6 +157,10 @@ If you do not provide any certificate parameters, you will be prompted.
 
 The service provider agency/organisation name which should be used in the
 certificates.
+
+=item B<< --org "<name>" >>
+
+The optional organisational unit name for use in the certificates.
 
 =item B<< --help >> (alias -?)
 

@@ -102,9 +102,10 @@ sub _dispatch_make_certs {
     my($class, $opt) = @_;
 
     my %args;
-    $args{env}    = $opt->{env}    if $opt->{env};
-    $args{org}    = $opt->{org}    if $opt->{org};
-    $args{domain} = $opt->{domain} if $opt->{domain};
+    $args{env}      = $opt->{env}      if $opt->{env};
+    $args{org}      = $opt->{org}      if $opt->{org};
+    $args{org_unit} = $opt->{org_unit} if $opt->{org_unit};
+    $args{domain}   = $opt->{domain}   if $opt->{domain};
     $class->class_for('service_provider')->generate_certs(
         _conf_dir($opt), %args
     );

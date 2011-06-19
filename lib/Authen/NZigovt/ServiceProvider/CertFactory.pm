@@ -22,6 +22,11 @@ Enter your organisation name (e.g.: "Department of Innovation" - without the
 quotes).
 EOF
 
+    org_unit => <<EOF,
+You may optionally include an organisational unit name (e.g.: "Innovation
+Labs") - leave  this field blank if you don't need it.
+EOF
+
     domain => <<EOF,
 
 Enter the domain name for your agency.  You might choose to include an
@@ -102,9 +107,10 @@ EOF
         }
 
         print "\nReady to generate certificates with the parameters:\n"
-            . "  Environment:  $args->{env}\n"
-            . "  Organisation: $args->{org}\n"
-            . "  Domain:       $args->{domain}\n\n";
+            . "  Environment:         $args->{env}\n"
+            . "  Organisation:        $args->{org}\n"
+            . "  Organisational Unit: $args->{org_unit}\n"
+            . "  Domain:              $args->{domain}\n\n";
 
         last TRY if _prompt_yes_no('Do you wish to generate certificates now? (y/n) ', '');
         redo TRY if _prompt_yes_no('Do you wish to try again? (y/n) ', '');
@@ -149,9 +155,13 @@ sub _generate_certificate {
         $out_base = "sp-ssl";
     }
 
+    my $subject = "/CN=${name}/O=$args->{org}";
+    if($args->{org_unit}  and  $args->{org_unit} =~ /\S/) {
+        $subject .= "/OU=$args->{org_unit}"
+    }
     my @command = (
         'openssl', 'req', '-new', '-key', $key_path,
-        '-subj', "/CN=${name}/O=$args->{org}",
+        '-subj', $subject,
         '-days', '1095',
     );
 
@@ -218,6 +228,19 @@ sub _validate_org {
         }
         default {
             print "Organisation name should be plain text without special characters\n";
+        }
+    };
+    return;
+}
+
+
+sub _validate_org_unit {
+    my($class, $value) = @_;
+
+    given($value) {
+        when(m{\A[a-z0-9(),./ -]*\z}i) { return 1; }
+        default {
+            print "Organisational unit should be plain text without special characters\n";
         }
     };
     return;
