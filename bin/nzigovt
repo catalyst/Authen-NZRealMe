@@ -29,6 +29,7 @@ if(!GetOptions(\%opt,
     'env=s',
     'org=s',
     'org_unit|org-unit=s',
+    'subject=s',
     'domain=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
@@ -72,6 +73,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
    --env <name>       target environment (must be: 'mts', 'ite' or 'prod')
    --org <name>       organisation/agency name, e.g.: "Department of Innovation"
    --org-unit <name>  organisational unit, e.g.: "Innovation Labs"
+   --subject <detail> additional detail for certificate subject
    --domain <name>    agency site domain e.g.: innovation.govt.nz
 
 =head1 DESCRIPTION
@@ -158,9 +160,16 @@ If you do not provide any certificate parameters, you will be prompted.
 The service provider agency/organisation name which should be used in the
 certificates.
 
-=item B<< --org "<name>" >>
+=item B<< --org-unit "<name>" >>
 
 The optional organisational unit name for use in the certificates.
+
+=item B<< --subject "<detail>" >>
+
+Optional additional details to go on the end of the certificate subject field.
+The CN will be calculated for you based on --domain.  The O and OU will be
+added based on --org and --org-unit.  Prefix each fieldname with a forward
+slash (e.g.: --subject /L=Wellington/ST=Wellington/C=NZ).
 
 =item B<< --help >> (alias -?)
 
