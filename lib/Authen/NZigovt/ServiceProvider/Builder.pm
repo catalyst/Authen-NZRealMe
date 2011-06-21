@@ -193,7 +193,8 @@ sub make_bundle {
     my($env) = $idp_name =~ m{www[.](mts|ite)};
     $env ||= 'prod';
 
-    my $work_dir = $sp->conf_dir . '/bundle';
+    my $conf_dir = $sp->conf_dir;
+    my $work_dir = "$conf_dir/bundle";
     rmtree($work_dir) if -e $work_dir;
 
     mkdir($work_dir) or die "mkdir($work_dir)";
@@ -206,9 +207,14 @@ sub make_bundle {
 
     print "Assembling metadata and certificate files\n";
 
-    copy('../metadata-sp.xml' => $metadata_file);
-    copy('../sp-sign-crt.pem' => $signing_cert);
-    copy('../sp-ssl-crt.pem'  => $ssl_cert);
+    copy('../metadata-sp.xml' => $metadata_file)
+        or die "error copying $conf_dir/metadata-sp.xml: $!\n";
+
+    copy('../sp-sign-crt.pem' => $signing_cert)
+        or die "error copying $conf_dir/sp-sign-crt.pem: $!\n";
+
+    copy('../sp-ssl-crt.pem'  => $ssl_cert)
+        or die "error copying $conf_dir/sp-ssl-crt.pem: $!\n";
 
     system('zip', $zip_file, $metadata_file, $signing_cert, $ssl_cert);
 
