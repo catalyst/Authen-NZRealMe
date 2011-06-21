@@ -11,6 +11,7 @@ require HTTP::Response;
 use URI::Escape  qw(uri_escape uri_unescape);
 use Digest::MD5  qw(md5_hex);
 use POSIX        qw(strftime);
+use File::Spec   qw();
 
 use WWW::Curl::Easy qw(
     CURLOPT_URL
@@ -52,6 +53,10 @@ sub new {
     my $class = shift;
 
     my $self = bless { @_ }, $class;
+
+    my $conf_dir = $self->{conf_dir} or die "conf_dir not set\n";
+    $self->{conf_dir} = File::Spec->rel2abs($conf_dir);
+
     $self->_load_metadata();
 
     return $self;
