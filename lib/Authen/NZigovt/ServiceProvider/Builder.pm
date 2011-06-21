@@ -213,7 +213,7 @@ sub make_bundle {
     system('zip', $zip_file, $metadata_file, $signing_cert, $ssl_cert);
 
 
-    chdir('..') or die "chdir('..')";
+    chdir('..') or die "chdir('..'): $!";
     rmtree($work_dir);
 
     return $zip_file;
