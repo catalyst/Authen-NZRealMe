@@ -25,6 +25,7 @@ my(%opt);
 
 if(!GetOptions(\%opt,
     'help|?',
+    'version',
     'conf_dir|conf-dir|c=s',
     'allow_create|allow-create',
     'env=s',
@@ -40,6 +41,8 @@ if(!GetOptions(\%opt,
 if($opt{help} or (@ARGV && $ARGV[0] eq 'help')) {
     pod2usage(-exitstatus => 0, -verbose => 2);
 }
+
+$ARGV[0] ||= 'version' if $opt{version};
 
 eval { Authen::NZigovt->run_command(\%opt, @ARGV); };
 if($@) {
@@ -66,6 +69,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
    make-req    generate a SAML AuthnRequest, encoded as a URL
    dump-req    dissect the provided URL and dump the XML
    resolve     resolve an artifact to an FLT
+   version     print module version number and exit
    help        detailed help message
 
   Options:
@@ -145,6 +149,14 @@ from the response.
 Note: in practice a SML artifact must be resolved very soon after it is
 generated or it will expire.
 
+=item version
+
+Print version number of L<Authen::NZigovt> module and exit.
+
+=item help
+
+Display this documentation.
+
 =back
 
 
@@ -181,10 +193,6 @@ Optional additional details to go on the end of the certificate subject field.
 The CN will be calculated for you based on --domain.  The O and OU will be
 added based on --org and --org-unit.  Prefix each fieldname with a forward
 slash (e.g.: --subject /L=Wellington/ST=Wellington/C=NZ).
-
-=item B<< --help >> (alias -?)
-
-Display this documentation.
 
 =back
 

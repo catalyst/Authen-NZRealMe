@@ -179,6 +179,11 @@ sub _dispatch_resolve {
 }
 
 
+sub _dispatch_version {
+    print $Authen::NZigovt::VERSION, "\n";
+}
+
+
 sub _conf_dir {
     my($opt) = @_;
 
