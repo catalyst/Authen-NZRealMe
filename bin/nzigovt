@@ -26,6 +26,7 @@ my(%opt);
 if(!GetOptions(\%opt,
     'help|?',
     'conf_dir|conf-dir|c=s',
+    'allow_create|allow-create',
     'env=s',
     'org=s',
     'org_unit|org-unit=s',
@@ -70,6 +71,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
   Options:
 
    --conf-dir <path>  pathname of directory containing metadata & cert files
+   --allow-create     can be used with 'make-req' to allow account creation
    --env <name>       target environment (must be: 'mts', 'ite' or 'prod')
    --org <name>       organisation/agency name, e.g.: "Department of Innovation"
    --org-unit <name>  organisational unit, e.g.: "Innovation Labs"
@@ -113,6 +115,11 @@ the Identity Provider.
 =item make-req
 
 Generate a URL containing a SAML AuthnRequest - for initiating a logon.
+
+Note: By default, the AuthnRequest will have the AllowCreate flag set to false
+(i.e.: the user must already have an igovt logon associated with this SP).  Use
+C<--allow-create> if you want the request to allow a new account and FLT to be
+created.
 
 =item dump-req <request URL>
 

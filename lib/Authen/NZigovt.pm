@@ -135,9 +135,10 @@ sub _dispatch_make_bundle {
 sub _dispatch_make_req {
     my($class, $opt) = @_;
 
+    my $allow_create = $opt->{allow_create} ? 1 : 0;
     my $sp  = $class->service_provider( conf_dir => _conf_dir($opt) );
     my $req = $sp->new_request(
-        allow_create => 0,
+        allow_create => $allow_create,
     );
     print "Request ID: ", $req->request_id, "\n" if -t 1;
     print $req->as_url, "\n";
