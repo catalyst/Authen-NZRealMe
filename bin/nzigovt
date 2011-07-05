@@ -114,7 +114,7 @@ the Identity Provider.
 
 Generate a URL containing a SAML AuthnRequest - for initiating a logon.
 
-=item dump-req
+=item dump-req <request URL>
 
 Takes a URL containing a SAML AuthnRequest; decodes it; and dumps the XML.  For
 example:
@@ -124,12 +124,16 @@ example:
 This utility can be used to dump AuthnRequests produced by any SAML
 implementation.
 
-=item resolve
+=item resolve <artifact> <request ID>
 
-Takes a URL containing a SAML artifact; decodes it; generates a SAML
-ArtifactResolve request; sends the request to the IdP using SOAP over the SSL
-back-channel; validates the resulting assertion; and extracts the FLT
-(Federated Logon Tag) from the response.
+This command takes two arguments - an artifact (either the whole URL or just
+the SAMLart part from the query string) and the request ID which was output
+from the original 'make-req' command.
+
+The command will decode the SAML artifact; generate a SAML ArtifactResolve
+request; send the request to the IdP using SOAP over the SSL back-channel;
+validate the resulting assertion; and extract the FLT (Federated Logon Tag)
+from the response.
 
 Note: in practice a SML artifact must be resolved very soon after it is
 generated or it will expire.
