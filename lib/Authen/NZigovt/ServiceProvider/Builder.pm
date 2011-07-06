@@ -36,8 +36,9 @@ the user back to?
 EOF
 
     url_single_logout => <<EOF,
-After a user has logged off, which URL on your site should the IdP redirect
-the user back to?
+The single logout URL is the URL which the IdP should use to advise your
+application that a single-signon session has been terminated.  You should leave
+this blank if your application does not implement single logout.
 EOF
 
     contact_company => <<EOF,

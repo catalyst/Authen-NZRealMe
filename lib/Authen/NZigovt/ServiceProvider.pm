@@ -626,11 +626,12 @@ sub _gen_svc_logout {
     my $self = shift;
     my $x    = $self->_x;
 
+    my $single_logout_url = $self->url_single_logout or return;
     return $x->SingleLogoutService($ns_md,
         {
             Binding          => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
-            Location         => $self->url_single_logout,
-            ResponseLocation => $self->url_single_logout,
+            Location         => $single_logout_url,
+            ResponseLocation => $single_logout_url,
         },
     );
 }
