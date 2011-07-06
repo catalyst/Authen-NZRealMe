@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.03      2011-07-06 13:47:10 Pacific/Auckland
     - support arbitrary suffix on cert subject (eg: /C=NZ)
     - add --allow-create flag on request
     - add 'version' command
