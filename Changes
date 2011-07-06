@@ -2,6 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
     - support arbitrary suffix on cert subject (eg: /C=NZ)
+    - add --allow-create flag on request
+    - add 'version' command
+    - make subject_suffix optional when generating certs
+    - make single logout URL option when generating metadata
 
 1.02      2011-06-20 11:41:22 Pacific/Auckland
     - add shortcut service_provider method to main module
