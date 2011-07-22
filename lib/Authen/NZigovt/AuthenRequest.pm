@@ -18,7 +18,7 @@ sub new {
     my $class = shift;
     my $sp    = shift;
 
-    my $self = bless { 
+    my $self = bless {
         allow_create    => 'false',
         force_auth      => 'true',
         auth_strength   => 'low',
