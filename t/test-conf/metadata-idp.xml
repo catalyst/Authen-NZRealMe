@@ -1,0 +1,54 @@
+<md:EntityDescriptor ID="MTS2 IdP"
+	entityID="https://www.mts-logon.i.govt.nz/mts2" xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+	xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" xmlns:query="urn:oasis:names:tc:SAML:metadata:ext:query"
+	xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" xmlns:xenc="http://www.w3.org/2001/04/xmlenc#">
+	<md:IDPSSODescriptor WantAuthnRequestsSigned="true"
+		protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+		<md:KeyDescriptor use="signing">
+			<ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+				<ds:X509Data>
+					<ds:X509Certificate>
+						MIICGDCCAYECBEnn9rkwDQYJKoZIhvcNAQEFBQAwUzELMAkGA1UEBhMCTloxDDAKBgNVBAoTA0RJ
+						QTEUMBIGA1UECxMLSUdPVlQgTE9HT04xIDAeBgNVBAMTF2Nscy5tdHMtbG9nb24uaS5nb3Z0Lm56
+						MB4XDTA5MDQxNzAzMjU0NVoXDTE0MDQyNDAzMjU0NVowUzELMAkGA1UEBhMCTloxDDAKBgNVBAoT
+						A0RJQTEUMBIGA1UECxMLSUdPVlQgTE9HT04xIDAeBgNVBAMTF2Nscy5tdHMtbG9nb24uaS5nb3Z0
+						Lm56MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDZF3gn07o2/J/lwkt1q4yUXCUECh27+XyK
+						dFVbNGdNnfTkUMCazK06ZQDuYEynPl7Wdo/CtgEhAuTh0V3KiTAo9MuzSW8waUReHcOeHwUTdHJQ
+						8qIcA69P4/TbN/QUx/KytokovPKxQxUR0uHhj22ryhhI0jt+ww2LiBsCBj6YVwIDAQABMA0GCSqG
+						SIb3DQEBBQUAA4GBAHy+agwV+5baS+PABboOB14QUpQFzfzEPHizmOZHSeQXJfEPMqjsDju9RzhP
+						kvqBe7/jUjoSi5r5RGvQpFupWva/ATEZZoMfXSBbzICBC5TDV98+KtZIz/kqzsNKv0NFeR1dui9U
+						EH3UhrnRFEAkbNhygygrX1FFGtGFNUx/FQdI
+					</ds:X509Certificate>
+				</ds:X509Data>
+			</ds:KeyInfo>
+		</md:KeyDescriptor>
+		<md:ArtifactResolutionService
+			Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP"
+			Location="https://as1.mts-logon.i.govt.nz:44320/soap/services/SAMLMessageProcessor/AP"
+			index="0" isDefault="true"></md:ArtifactResolutionService>
+		<md:ArtifactResolutionService
+			Binding="urn:oasis:names:tc:SAML:2.0:bindings:SOAP"
+			Location="https://as2.mts-logon.i.govt.nz:44320/soap/services/SAMLMessageProcessor/AP"
+			index="1" isDefault="false"></md:ArtifactResolutionService>
+		<md:SingleLogoutService
+			Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+			Location="https://www.mts-logon.i.govt.nz/mts2/controller/SLO"
+			ResponseLocation="www.mts-logon.i.govt.nz/mts2/controller/SLOResponse"></md:SingleLogoutService>
+		<md:SingleSignOnService
+			Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+			Location="https://www.mts-logon.i.govt.nz/mts2/controller/SSO"></md:SingleSignOnService>
+	</md:IDPSSODescriptor>
+	<md:Organization>
+		<md:OrganizationName xml:lang="en-us">IGOVT LOGON - DIA
+		</md:OrganizationName>
+		<md:OrganizationDisplayName xml:lang="en-us">IGOVT
+			LOGON - DIA</md:OrganizationDisplayName>
+		<md:OrganizationURL xml:lang="en-us">http://www.i.govt.nz
+		</md:OrganizationURL>
+	</md:Organization>
+	<md:ContactPerson contactType="technical">
+		<md:Company></md:Company>
+		<md:GivenName></md:GivenName>
+		<md:SurName></md:SurName>
+	</md:ContactPerson>
+</md:EntityDescriptor>
