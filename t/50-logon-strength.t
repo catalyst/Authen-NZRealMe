@@ -1,6 +1,6 @@
 #!perl -T
 
-use Test::More tests => 37;
+use Test::More;
 
 use_ok('Authen::NZigovt');
 
@@ -128,5 +128,5 @@ eval { $s2->assert_match('sms', 'close'); };
 like("$@", qr/Unrecognised password strength match type/,
     "'close' is not a valid match type");
 
-1;
+done_testing();
 
