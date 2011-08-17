@@ -2,6 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.04      2011-08-17 20:55:04 Pacific/Auckland
+    - fix broken handling of ForceAuthn parameter in AuthnRequest
+    - add tests for metadata and request classes
+
 1.03      2011-07-06 13:47:10 Pacific/Auckland
     - support arbitrary suffix on cert subject (eg: /C=NZ)
     - add --allow-create flag on request
