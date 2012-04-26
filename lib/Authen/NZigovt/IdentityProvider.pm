@@ -49,11 +49,16 @@ sub artifact_resolution_location {
 sub verify_signature {
     my($self, $xml) = @_;
 
-    my $verifier = Authen::NZigovt->class_for('xml_signer')->new(
-        pub_cert_text => $self->signing_cert_pem_data(),
-    );
-
-    return $verifier->verify($xml);
+    eval {
+        my $verifier = Authen::NZigovt->class_for('xml_signer')->new(
+            pub_cert_text => $self->signing_cert_pem_data(),
+        );
+        $verifier->verify($xml);
+    };
+    if(@) {
+        die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
+    }
+    return 1;
 }
 
 
