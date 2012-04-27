@@ -55,7 +55,7 @@ sub verify_signature {
         );
         $verifier->verify($xml);
     };
-    if(@) {
+    if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
     }
     return 1;
