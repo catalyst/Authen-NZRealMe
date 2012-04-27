@@ -52,7 +52,10 @@ my $soap_action = 'http://www.oasis-open.org/committees/security';
 sub new {
     my $class = shift;
 
-    my $self = bless { @_ }, $class;
+    my $self = bless {
+        skip_signature_check => 0,
+        @_
+    }, $class;
 
     my $conf_dir = $self->{conf_dir} or die "conf_dir not set\n";
     $self->{conf_dir} = File::Spec->rel2abs($conf_dir);
@@ -82,6 +85,7 @@ sub url_assertion_consumer { shift->{url_assertion_consumer}; }
 sub contact_company        { shift->{contact_company};        }
 sub contact_first_name     { shift->{contact_first_name};     }
 sub contact_surname        { shift->{contact_surname};        }
+sub skip_signature_check   { shift->{skip_signature_check};   }
 sub _x                     { shift->{x};                      }
 sub nameid_format          { return $urn_nameid_format;       }
 sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
@@ -380,7 +384,7 @@ sub _verify_assertion {
     # We have a SAML assertion, make sure it's signed
 
     my $idp  = $self->idp;
-    $idp->verify_signature($xml);
+    $self->_verify_assertion_signature($idp, $xml);
 
 
     # Confirm that subject is valid for our SP
@@ -439,6 +443,27 @@ sub _verify_assertion {
     $response->set_flt($flt);
 
     return $response;
+}
+
+
+sub _verify_assertion_signature {
+    my($self, $idp, $xml) = @_;
+
+    my $skip_type = $self->skip_signature_check;
+    return if $skip_type > 1;
+
+    eval {
+        $idp->verify_signature($xml);
+    };
+    return unless $@;  # Signature was good
+
+    if($skip_type) {
+        warn "WARNING: Continuing after signature verification failure "
+           . "(skip_signature_check is enabled)\n$@\n";
+        return;
+    }
+
+    die $@;   # Re-throw the exception
 }
 
 
@@ -704,9 +729,32 @@ Constructor.  Should not be called directly.  Instead, call:
 
   Authen::NZigovt->service_provider( args );
 
+The following options are recognised:
+
+=over 4
+
+=item conf_dir => '/path/to/directory'
+
 The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
 of the directory containing SP and IdP metadata files as well as certificate
 and key files for request signing and mutual-SSL.
+
+=item skip_signature_check => [ 0 | 1 | 2 ]
+
+This (seldom used) option allows you to turn off verification of digital
+signatures in the assertions returned from the IdP.  The default value is 0 -
+meaning B<signatures will be checked>.
+
+If set to 1, a failed signature check will result in a warning to STDERR but
+further processing of the assertion will continue.  This mode is useful if the
+signing certificate is scheduled to be replaced on the IdP.  Enabling this
+option allows you to update your metadata before or after the scheduled change
+without needing to coordinate your timing exactly with the IdP service.
+
+Setting this option to 2 will completely skip signature checks (i.e. no errors
+or warnings will be generated).
+
+=back
 
 =head2 new_defaults
 
