@@ -6,11 +6,13 @@ use warnings;
 require XML::LibXML;
 require XML::LibXML::XPathContext;
 require XML::Generator;
+require Crypt::OpenSSL::X509;
 require HTTP::Response;
 
 use URI::Escape  qw(uri_escape uri_unescape);
 use Digest::MD5  qw(md5_hex);
 use POSIX        qw(strftime);
+use Date::Parse  qw();
 use File::Spec   qw();
 
 use WWW::Curl::Easy qw(
@@ -78,10 +80,11 @@ sub new_defaults {
 
 
 sub conf_dir               { shift->{conf_dir};               }
-sub id                     { shift->{id};                     }
 sub entity_id              { shift->{entity_id};              }
 sub url_single_logout      { shift->{url_single_logout};      }
 sub url_assertion_consumer { shift->{url_assertion_consumer}; }
+sub organization_name      { shift->{organization_name};      }
+sub organization_url       { shift->{organization_url};       }
 sub contact_company        { shift->{contact_company};        }
 sub contact_first_name     { shift->{contact_first_name};     }
 sub contact_surname        { shift->{contact_surname};        }
@@ -183,6 +186,8 @@ sub _read_metadata_from_file {
         [ entity_id              => q{/md:EntityDescriptor/@entityID} ],
         [ url_single_logout      => q{/md:EntityDescriptor/md:SPSSODescriptor/md:SingleLogoutService/@Location} ],
         [ url_assertion_consumer => q{/md:EntityDescriptor/md:SPSSODescriptor/md:AssertionConsumerService/@Location} ],
+        [ organization_name      => q{/md:EntityDescriptor/md:Organization/md:OrganizationName} ],
+        [ organization_url       => q{/md:EntityDescriptor/md:Organization/md:OrganizationURL} ],
         [ contact_company        => q{/md:EntityDescriptor/md:ContactPerson/md:Company} ],
         [ contact_first_name     => q{/md:EntityDescriptor/md:ContactPerson/md:GivenName} ],
         [ contact_surname        => q{/md:EntityDescriptor/md:ContactPerson/md:SurName} ],
@@ -236,8 +241,7 @@ sub _signing_cert_pem_data {
 sub metadata_xml {
     my $self = shift;
 
-    my $xml = $self->_sign_xml( $self->_to_xml_string(), $self->id );
-    return $xml;
+    return $self->_to_xml_string();
 }
 
 
@@ -595,19 +599,33 @@ sub _compare_times {
 sub _to_xml_string {
     my $self = shift;
 
+    my $ns_md_uri = $ns_md->[1];   # Used as default namespace, so no prefix required
     my $x = XML::Generator->new(':pretty',
-        namespace => [ @$ns_md, @$ns_ds ],
+        namespace => [ '#default' => $ns_md_uri ],
     );
     $self->{x} = $x;
 
-    return $x->EntityDescriptor($ns_md,
+    my $xml = $x->EntityDescriptor(
         {
-            ID       => $self->id,
-            entityID => $self->entity_id,
+            entityID    => $self->entity_id,
+            validUntil  => $self->_valid_until_datetime,
         },
         $self->_gen_sp_sso_descriptor(),
+        $self->_gen_organization(),
         $self->_gen_contact(),
     );
+    $xml =~ s{ _xml_lang_attribute="}{ xml:lang="}sg;
+    return $xml;
+}
+
+
+sub _valid_until_datetime {
+    my $self = shift;
+
+    my $x509 = Crypt::OpenSSL::X509->new_from_file( $self->signing_cert_pathname );
+    my $date_time = $x509->notAfter;
+    my $utime = Date::Parse::str2time($date_time);
+    return strftime('%FT%TZ', gmtime($utime) );
 }
 
 
@@ -615,14 +633,15 @@ sub _gen_sp_sso_descriptor {
     my $self = shift;
     my $x    = $self->_x;
 
-    return $x->SPSSODescriptor($ns_md,
+    return $x->SPSSODescriptor(
         {
             AuthnRequestsSigned        => 'true',
             WantAssertionsSigned       => 'true',
             protocolSupportEnumeration => 'urn:oasis:names:tc:SAML:2.0:protocol',
         },
         $self->_gen_signing_key(),
-        $self->_gen_svc_logout(),
+        #$self->_gen_svc_logout(),      # No longer required
+        $self->_name_id_format(),
         $self->_gen_svc_assertion_consumer(),
     );
 }
@@ -632,7 +651,7 @@ sub _gen_signing_key {
     my $self = shift;
     my $x    = $self->_x;
 
-    return $x->KeyDescriptor($ns_md,
+    return $x->KeyDescriptor(
         {
             use => 'signing',
         },
@@ -647,16 +666,25 @@ sub _gen_signing_key {
 }
 
 
+sub _name_id_format {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->NameIDFormat(
+        $self->nameid_format
+    );
+}
+
+
 sub _gen_svc_logout {
     my $self = shift;
     my $x    = $self->_x;
 
     my $single_logout_url = $self->url_single_logout or return;
-    return $x->SingleLogoutService($ns_md,
+    return $x->SingleLogoutService(
         {
             Binding          => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect',
             Location         => $single_logout_url,
-            ResponseLocation => $single_logout_url,
         },
     );
 }
@@ -666,14 +694,40 @@ sub _gen_svc_assertion_consumer {
     my $self = shift;
     my $x    = $self->_x;
 
-    return $x->AssertionConsumerService($ns_md,
+    return $x->AssertionConsumerService(
         {
             Binding          => 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact',
             Location         => $self->url_assertion_consumer,
-            ResponseLocation => $self->url_assertion_consumer,
             index            => 0,
             isDefault        => 'true',
         },
+    );
+}
+
+
+sub _gen_organization {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->Organization(
+        $x->OrganizationName(
+            {
+                _xml_lang_attribute  => 'en-us',
+            },
+            $self->organization_name
+        ),
+        $x->OrganizationDisplayName(
+            {
+                _xml_lang_attribute  => 'en-us',
+            },
+            $self->organization_name
+        ),
+        $x->OrganizationURL(
+            {
+                _xml_lang_attribute  => 'en-us',
+            },
+            $self->organization_url
+        ),
     );
 }
 
@@ -688,13 +742,13 @@ sub _gen_contact {
 
     return() unless $have_contact;
 
-    return $x->ContactPerson($ns_md,
+    return $x->ContactPerson(
         {
             contactType      => 'technical',
         },
-        $x->Company  ($ns_md, $self->contact_company    || ''),
-        $x->GivenName($ns_md, $self->contact_first_name || ''),
-        $x->SurName  ($ns_md, $self->contact_surname    || ''),
+        $x->Company  ($self->contact_company    || ''),
+        $x->GivenName($self->contact_first_name || ''),
+        $x->SurName  ($self->contact_surname    || ''),
     );
 }
 
@@ -765,10 +819,6 @@ generating metadata.
 
 Accessor for the C<conf_dir> parameter passed in to the constructor.
 
-=head2 id
-
-Accessor for the C<ID> parameter in the Service Provider metadata file.
-
 =head2 entity_id
 
 Accessor for the C<entityID> parameter in the Service Provider metadata file.
@@ -782,6 +832,16 @@ metadata file.
 
 Accessor for the C<AssertionConsumerService> parameter in the Service Provider
 metadata file.
+
+=head2 organization_name
+
+Accessor for the C<OrganizationName> component of the C<Organization> parameter in the
+Service Provider metadata file.
+
+=head2 organization_url
+
+Accessor for the C<OrganizationURL> component of the C<Organization> parameter in the
+Service Provider metadata file.
 
 =head2 contact_company
 
