@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.06      2013-07-25 14:42:11 Pacific/Auckland
     - update metadata builder for changed spec (digital signature removed,
       various other parameters added and removed)
     - add note to confirm module works with RealMe
