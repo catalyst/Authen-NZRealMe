@@ -19,13 +19,14 @@ my $sp = Authen::NZigovt->service_provider( conf_dir => $conf_dir );
 isa_ok($sp, 'Authen::NZigovt::ServiceProvider');
 
 is($sp->conf_dir, $conf_dir, "SP's conf_dir looks good");
-is($sp->id, 'EXAMPLE-SP-DEV', "SP ID loaded from metadata looks good");
 is($sp->entity_id, 'https://www.example.govt.nz/app/sample',
     "SP EntityID loaded from metadata looks good");
 is($sp->url_assertion_consumer, 'https://www.example.govt.nz/app/sample/saml-acs',
     "SP ACS URL from metadata looks good");
-is($sp->url_single_logout, 'https://www.example.govt.nz/app/sample/saml-logout',
-    "SP SingleLogout URL from metadata looks good");
+is($sp->organization_name, 'Department of Examples',
+    "SP OrganizationName loaded from metadata looks good");
+is($sp->organization_url, 'https://www.example.govt.nz/',
+    "SP OrganizationURL loaded from metadata looks good");
 
 my $idp = $sp->idp;
 
