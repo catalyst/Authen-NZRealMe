@@ -1,6 +1,9 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+    - update metadata builder for changed spec (digital signature removed,
+      various other parameters added and removed)
+    - add note to confirm module works with RealMe
 
 1.05      2012-04-27 12:32:49 Pacific/Auckland
     - add skip_signature_check option to support IdP cert change
