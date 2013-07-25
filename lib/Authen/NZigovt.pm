@@ -6,12 +6,16 @@ use strict;
 
 =head1 NAME
 
-Authen::NZigovt - Tools for integrating with the New Zealand igovt logon service
+Authen::NZigovt - Tools for integrating with the New Zealand igovt logon service (now "RealMe")
 
 =head1 DESCRIPTION
 
 This module provides an API for integrating your application with the New
 Zealand igovt logon service using SAML 2.0 messaging.
+
+I<Note>: Since the "igovt logon service" was rebranded to "RealMe" in 2013, this
+module is now misnamed, however it does continue to work with the new RealMe
+service.  The code may be re-released under a new name in the future.
 
 The distribution also includes a command-line tool called C<nzigovt> which can
 be used for:
