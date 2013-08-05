@@ -1,6 +1,7 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+    - switch dependency from Digest::SHA1 to Digest::SHA
 
 1.06      2013-07-25 14:42:11 Pacific/Auckland
     - update metadata builder for changed spec (digital signature removed,
