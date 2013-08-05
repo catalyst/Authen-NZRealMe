@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.07      2013-08-06 09:47:11 Pacific/Auckland
     - switch dependency from Digest::SHA1 to Digest::SHA
 
 1.06      2013-07-25 14:42:11 Pacific/Auckland
