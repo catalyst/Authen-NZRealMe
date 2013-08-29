@@ -32,7 +32,8 @@ my $uri_env_sig      = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 my $uri_exc_c14n     = 'http://www.w3.org/2001/10/xml-exc-c14n#';
 my $uri_digest_sha1  = 'http://www.w3.org/2000/09/xmldsig#sha1';
 
-use constant WITH_COMMENTS => 1;
+use constant WITH_COMMENTS    => 1;
+use constant WITHOUT_COMMENTS => 0;
 
 sub new {
     my $class = shift;
@@ -83,7 +84,17 @@ sub default_target_id {
 }
 
 
-sub _canonical_xml {
+sub _c14n_xml {
+    my($self, $frag) = @_;
+
+    if(not ref $frag) {   # convert XML string to a DOM node
+        $frag = $self->_xml_to_dom($frag);
+    }
+
+    return $frag->toStringC14N(WITHOUT_COMMENTS);
+}
+
+sub _ec14n_xml {
     my($self, $frag) = @_;
 
     if(not ref $frag) {   # convert XML string to a DOM node
@@ -97,7 +108,7 @@ sub _canonical_xml {
 sub _xml_digest {
     my($self, $frag) = @_;
 
-    my $frag_xml   = $self->_canonical_xml($frag);
+    my $frag_xml   = $self->_ec14n_xml($frag);
     my $bin_digest = sha1($frag_xml);
     return encode_base64($bin_digest, '');
 }
@@ -117,7 +128,7 @@ sub _make_signature_xml {
 
     my $digest     = $self->_xml_digest($frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
-    my $sig_value  = $self->rsa_signature($self->_canonical_xml($sig_info));
+    my $sig_value  = $self->rsa_signature($self->_c14n_xml($sig_info));
 
     return qq{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
         ${sig_info}
@@ -244,7 +255,7 @@ sub _parse_signature {
 
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
-    my $plaintext = $self->_canonical_xml($sig_info);
+    my $plaintext = $self->_c14n_xml($sig_info);
 
     $self->_verify_rsa_signature($plaintext, $sig_val)
         or die "Invalid signature referencing '$ref_uri'";
