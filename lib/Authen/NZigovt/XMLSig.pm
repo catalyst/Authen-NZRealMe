@@ -29,7 +29,8 @@ my $ns_ds            = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
 
 my $uri_rsa_sha1_sig = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
 my $uri_env_sig      = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
-my $uri_exc_c14n     = 'http://www.w3.org/2001/10/xml-exc-c14n#';
+my $uri_c14n         = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
+my $uri_ec14n        = 'http://www.w3.org/2001/10/xml-exc-c14n';
 my $uri_digest_sha1  = 'http://www.w3.org/2000/09/xmldsig#sha1';
 
 use constant WITH_COMMENTS    => 1;
@@ -84,24 +85,44 @@ sub default_target_id {
 }
 
 
+sub _canonicalize {
+    my($self, $c14n_method_uri, $xml) = @_;
+
+    my($base_uri, $hash_frag) =
+        $c14n_method_uri =~ m{\A(http:[^#]+)(?:#(.*))\z}
+            or die "Can't parse CanonicalizationMethod: $c14n_method_uri";
+    my $comments = WITHOUT_COMMENTS;
+    if($hash_frag && $hash_frag eq 'WithComments') {
+        $comments = WITH_COMMENTS;
+    }
+    if($base_uri eq $uri_c14n) {
+        return $self->_c14n_xml($xml, $comments);
+    }
+    elsif($base_uri eq $uri_ec14n) {
+        return $self->_ec14n_xml($xml, $comments);
+    }
+    die "Unsupported canonicalization method: $c14n_method_uri";
+}
+
+
 sub _c14n_xml {
-    my($self, $frag) = @_;
+    my($self, $frag, $comments) = @_;
 
     if(not ref $frag) {   # convert XML string to a DOM node
         $frag = $self->_xml_to_dom($frag);
     }
 
-    return $frag->toStringC14N(WITHOUT_COMMENTS);
+    return $frag->toStringC14N($comments);
 }
 
 sub _ec14n_xml {
-    my($self, $frag) = @_;
+    my($self, $frag, $comments) = @_;
 
     if(not ref $frag) {   # convert XML string to a DOM node
         $frag = $self->_xml_to_dom($frag);
     }
 
-    return $frag->toStringEC14N(WITH_COMMENTS);
+    return $frag->toStringEC14N($comments);
 }
 
 
@@ -217,6 +238,9 @@ sub _parse_signature {
     my($sig_info) = $xc->findnodes(q{./ds:SignedInfo}, $sig)
         or die "Can't verify a signature without a 'SignedInfo' element";
 
+    my $c14n_method = $xc->findvalue(q{./ds:CanonicalizationMethod/@Algorithm}, $sig_info)
+        or die "Can't find CanonicalizationMethod in " . $sig->toString;
+
     my $algorithm = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
         or die "Can't find SignatureMethod in " . $sig->toString;
 
@@ -249,13 +273,14 @@ sub _parse_signature {
         )
     ) {
         next if $xform eq $uri_env_sig;
-        next if $xform eq $uri_exc_c14n;
+        next if $xform =~ m{\A\Q$uri_c14n\E(?:#(?:WithComments)?)?\z};
+        next if $xform =~ m{\A\Q$uri_ec14n\E(?:#(?:WithComments)?)?\z};
         die "Unsupported transformation: '$xform'";
     }
 
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
-    my $plaintext = $self->_c14n_xml($sig_info);
+    my $plaintext = $self->_canonicalize($c14n_method, $sig_info);
 
     $self->_verify_rsa_signature($plaintext, $sig_val)
         or die "Invalid signature referencing '$ref_uri'";
