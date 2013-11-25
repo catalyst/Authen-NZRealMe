@@ -10,8 +10,7 @@ use MIME::Base64 qw(encode_base64);
 use Digest::SHA  qw(sha1_base64);
 
 
-my $metadata_from_file = undef;
-my $metadata_filename  = 'metadata-idp.xml';
+my %metadata_cache;
 
 
 my $ns_md = [ md => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
@@ -23,7 +22,10 @@ my $soap_binding = 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP';
 sub new {
     my $class = shift;
 
-    my $self = bless { @_ }, $class;
+    my $self = bless {
+        type  => 'login',
+        @_
+    }, $class;
     $self->_load_metadata();
 
     return $self;
@@ -31,6 +33,7 @@ sub new {
 
 
 sub conf_dir              { shift->{conf_dir};               }
+sub type                  { shift->{type};                   }
 sub entity_id             { shift->{entity_id};              }
 sub single_signon_location{ shift->{single_signon_location}; }
 sub signing_cert_pem_data { shift->{signing_cert_pem_data};  }
@@ -65,7 +68,8 @@ sub verify_signature {
 sub _load_metadata {
     my $self = shift;
 
-    my $params = $metadata_from_file || $self->_read_metadata_from_file;
+    my $cache_key = $self->conf_dir . '-' . $self->type;
+    my $params = $metadata_cache{$cache_key} || $self->_read_metadata_from_file;
 
     $self->{$_} = $params->{$_} foreach keys %$params;
 }
@@ -114,7 +118,8 @@ sub _read_metadata_from_file {
     }
     $params{ars} = \%ars;
 
-    $metadata_from_file = \%params;
+    my $cache_key = $self->conf_dir . '-' . $self->type;
+    $metadata_cache{$cache_key} = \%params;
 }
 
 
@@ -122,7 +127,7 @@ sub _metadata_pathname {
     my $self = shift;
 
     my $conf_dir = $self->conf_dir or die "conf_dir not set";
-    return $conf_dir . '/' . $metadata_filename;
+    return $conf_dir . '/metadata-' . $self->type . '-idp.xml';
 }
 
 

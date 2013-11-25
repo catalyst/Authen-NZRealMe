@@ -32,8 +32,7 @@ use constant DATETIME_EQUAL  => 0;
 use constant DATETIME_AFTER  => 1;
 
 
-my $metadata_from_file    = undef;
-my $metadata_filename     = 'metadata-sp.xml';
+my %metadata_cache;
 my $signing_cert_filename = 'sp-sign-crt.pem';
 my $signing_key_filename  = 'sp-sign-key.pem';
 my $ssl_cert_filename     = 'sp-ssl-crt.pem';
@@ -55,7 +54,8 @@ sub new {
     my $class = shift;
 
     my $self = bless {
-        skip_signature_check => 0,
+        type                  => 'login',
+        skip_signature_check  => 0,
         @_
     }, $class;
 
@@ -80,6 +80,7 @@ sub new_defaults {
 
 
 sub conf_dir               { shift->{conf_dir};               }
+sub type                   { shift->{type};                   }
 sub entity_id              { shift->{entity_id};              }
 sub url_single_logout      { shift->{url_single_logout};      }
 sub url_assertion_consumer { shift->{url_assertion_consumer}; }
@@ -162,7 +163,8 @@ sub make_bundle {
 sub _load_metadata {
     my $self = shift;
 
-    my $params = $metadata_from_file || $self->_read_metadata_from_file;
+    my $cache_key = $self->conf_dir . '-' . $self->type;
+    my $params = $metadata_cache{$cache_key} || $self->_read_metadata_from_file;
 
     $self->{$_} = $params->{$_} foreach keys %$params;
 }
@@ -195,7 +197,8 @@ sub _read_metadata_from_file {
         $params{$_->[0]} = $xc->findvalue($_->[1]);
     }
 
-    $metadata_from_file = \%params;
+    my $cache_key = $self->conf_dir . '-' . $self->type;
+    $metadata_cache{$cache_key} = \%params;
 }
 
 
@@ -204,7 +207,8 @@ sub _metadata_pathname {
     my $conf_dir = shift;
 
     $conf_dir ||= $self->conf_dir or die "conf_dir not set";
-    return $conf_dir . '/' . $metadata_filename;
+
+    return $conf_dir . '/metadata-' . $self->type . '-sp.xml';
 }
 
 

@@ -399,8 +399,8 @@ L<Authen::NZRealMe::ServiceProvider>.
 
 This module is configuration-driven - when making an API call, you specify the
 path to the config directory and the module picks up everything it needs to
-talk to the NZ igovt logon service Identity Provider from metadata files and
-certificate/key-pair files used for signing/encryption.
+talk to the RealMe login service IdP (Identity Provider) from metadata files
+and certificate/key-pair files used for signing/encryption.
 
 =head2 Config Files Overview
 
@@ -409,18 +409,18 @@ just need to point the module at the right directory.  The filenames are:
 
 =over 4
 
-=item C<metadata-sp.xml>
+=item C<metadata-login-sp.xml>
 
 This file contains config parameters for the 'Service Provider' - your end of
 the authentication dialog.  Once you have generated the SP metadata file (see:
-L</Generating Config Files>) you will need to provide it to the NZ igovt logon
+L</Generating Config Files>) you will need to provide it to the RealMe logon
 service to install at their end.  You will need to generate separate metadata
 files for each of your development, staging and production environments.
 
-=item C<metadata-idp.xml>
+=item C<metadata-login-idp.xml>
 
-The IdP or Identity Provider metadata file will be provided to you by the NZ
-igovt logon service.  You will simply need to copy it to the config directory
+The IdP or Identity Provider metadata file will be provided to you by the
+RealMe logon service.  You will simply need to copy it to the config directory
 and give it the correct name.
 
 =item C<sp-sign-crt.pem>
