@@ -1,4 +1,4 @@
-package Authen::NZigovt::ServiceProvider::Builder;
+package Authen::NZRealMe::ServiceProvider::Builder;
 
 use warnings;
 use strict;
@@ -229,7 +229,7 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ServiceProvider::Builder - interactively create/edit Service Provider metadata
+Authen::NZRealMe::ServiceProvider::Builder - interactively create/edit Service Provider metadata
 
 =head1 DESCRIPTION
 
@@ -249,12 +249,12 @@ Provider metadata file through a series of interactive questions and answers.
 
 Called by the C<< nzigovt make-bundle >> command to create a zip archive of
 the files needed by the IdP.  The archive will include the SP metadata and
-certificate files.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
+certificate files.  Delegates to L<Authen::NZRealMe::ServiceProvider::Builder>
 
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

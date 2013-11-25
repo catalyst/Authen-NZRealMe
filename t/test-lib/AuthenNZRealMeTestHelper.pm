@@ -1,4 +1,4 @@
-package AuthenNZigovtTestHelper;
+package AuthenNZRealMeTestHelper;
 
 use strict;
 use warnings;

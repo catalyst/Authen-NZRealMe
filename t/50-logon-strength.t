@@ -2,20 +2,20 @@
 
 use Test::More;
 
-use_ok('Authen::NZigovt');
+use_ok('Authen::NZRealMe');
 
 
-my $class = Authen::NZigovt->class_for('logon_strength');
-is($class, 'Authen::NZigovt::LogonStrength');
+my $class = Authen::NZRealMe->class_for('logon_strength');
+is($class, 'Authen::NZRealMe::LogonStrength');
 
 my $s1 = $class->new;
-isa_ok($s1, 'Authen::NZigovt::LogonStrength');
-is($s1->urn, &Authen::NZigovt::LogonStrength::STRENGTH_LOW);
+isa_ok($s1, 'Authen::NZRealMe::LogonStrength');
+is($s1->urn, &Authen::NZRealMe::LogonStrength::STRENGTH_LOW);
 is($s1->score, 10);
 
 my $s2 = $class->new('low');
-isa_ok($s2, 'Authen::NZigovt::LogonStrength');
-is($s2->urn, &Authen::NZigovt::LogonStrength::STRENGTH_LOW);
+isa_ok($s2, 'Authen::NZRealMe::LogonStrength');
+is($s2->urn, &Authen::NZRealMe::LogonStrength::STRENGTH_LOW);
 
 eval { $s1->assert_match('low'); };
 is($@, '', "'low' matches ('low')");
@@ -27,7 +27,7 @@ eval { $s1->assert_match('low', 'minimum'); };
 is($@, '', "'low' matches ('low', 'minimum')");
 
 $s2 = $class->new('mod');
-is($s2->urn, &Authen::NZigovt::LogonStrength::STRENGTH_MODERATE);
+is($s2->urn, &Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE);
 
 eval { $s2->assert_match('mod'); };
 is($@, '', "'mod' matches ('mod')");
@@ -43,7 +43,7 @@ is($@, '', "'mod' matches ('low', 'minimum')");
 
 
 $s2 = $class->new('sms');
-is($s2->urn, &Authen::NZigovt::LogonStrength::STRENGTH_MODERATE_SMS);
+is($s2->urn, &Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE_SMS);
 
 eval { $s2->assert_match('sms', 'exact'); };
 is($@, '', "'sms' matches ('sms', 'exact')");
@@ -62,7 +62,7 @@ is($@, '', "'sms' matches ('mod', 'exact')");
 
 
 $s2 = $class->new('sid');
-is($s2->urn, &Authen::NZigovt::LogonStrength::STRENGTH_MODERATE_SID);
+is($s2->urn, &Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE_SID);
 
 eval { $s2->assert_match('sid', 'exact'); };
 is($@, '', "'sid' matches ('sid', 'exact')");

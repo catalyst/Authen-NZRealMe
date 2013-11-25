@@ -19,7 +19,7 @@ use warnings;
 use Pod::Usage;
 use Getopt::Long qw(GetOptions);
 
-use Authen::NZigovt;
+use Authen::NZRealMe;
 
 my(%opt);
 
@@ -44,7 +44,7 @@ if($opt{help} or (@ARGV && $ARGV[0] eq 'help')) {
 
 $ARGV[0] ||= 'version' if $opt{version};
 
-eval { Authen::NZigovt->run_command(\%opt, @ARGV); };
+eval { Authen::NZRealMe->run_command(\%opt, @ARGV); };
 if($@) {
     pod2usage(-exitstatus => 1, -verbose => 0, -message => "$@");
 }
@@ -84,7 +84,7 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
 
 =head1 DESCRIPTION
 
-The C<nzigovt> script and related modules from the L<Authen::NZigovt>
+The C<nzigovt> script and related modules from the L<Authen::NZRealMe>
 distribution provide tools for interacting with the New Zealand 'igovt logon
 service' operated by the Department of Internal Affairs.  These tools ARE NOT
 produced by nor endorsed by the Department of Internal Affairs.  They are
@@ -151,7 +151,7 @@ generated or it will expire.
 
 =item version
 
-Print version number of L<Authen::NZigovt> module and exit.
+Print version number of L<Authen::NZRealMe> module and exit.
 
 =item help
 
@@ -168,7 +168,7 @@ Display this documentation.
 
 Specify the path to the directory containing the metadata files and
 certificate/key-pair files for signing requests and encrypting SSL traffic.
-See C<< perldoc Authen::NZigovt >> for more information about config files.
+See C<< perldoc Authen::NZRealMe >> for more information about config files.
 
 =item B<< --env <name> >>
 

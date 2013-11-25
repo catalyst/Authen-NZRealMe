@@ -1,19 +1,20 @@
-Source: libauthen-nzigovt-perl
+Source: libauthen-nzrealme-perl
 Section: perl
 Priority: optional
 Build-Depends: debhelper (>= 5)
 Build-Depends-Indep: perl (>= 5.6.10-12)
 Maintainer: Grant McLean <grant@catalyst.net.nz>
 Standards-Version: 3.8.0
-Homepage: http://search.cpan.org/dist/Authen-NZigovt/
+Homepage: http://search.cpan.org/dist/Authen-NZRealMe/
 
-Package: libauthen-nzigovt-perl
+Package: libauthen-nzrealme-perl
 Architecture: all
 Depends: ${perl:Depends}, ${misc:Depends}, openssl, zip, libxml-generator-perl, libxml-libxml-perl, liburi-perl, libwww-perl, libwww-curl-perl, libcrypt-openssl-rsa-perl, libcrypt-openssl-x509-perl, libio-compress-zlib-perl, libterm-readline-gnu-perl, libtimedate-perl
-Description:  Tools for integrating with the New Zealand igovt logon service
- This module provides an API for integrating your application with the New
- Zealand igovt logon service using SAML 2.0 messaging.
+Description:  Tools for integrating with the New Zealand RealMe login and
+ identity services (formerly "igovt logon").  This module provides an API for
+ integrating your application with the New Zealand RealMe services using SAML
+ 2.0 messaging.
  .
- The distribution also includes a command-line tool called 'nzigovt' which can
+ The distribution also includes a command-line tool called 'nzrealme' which can
  be used for generating certificates and metadata; generating authentication
  request messages and resolving artifacts.

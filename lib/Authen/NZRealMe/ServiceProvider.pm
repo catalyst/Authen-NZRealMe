@@ -1,4 +1,4 @@
-package Authen::NZigovt::ServiceProvider;
+package Authen::NZRealMe::ServiceProvider;
 
 use strict;
 use warnings;
@@ -101,7 +101,7 @@ sub idp {
 
     return $self->{idp} if $self->{idp};
 
-    $self->{idp} = Authen::NZigovt->class_for('identity_provider')->new(
+    $self->{idp} = Authen::NZRealMe->class_for('identity_provider')->new(
         conf_dir => $self->conf_dir()
     );
 }
@@ -117,7 +117,7 @@ sub generate_saml_id {
 sub generate_certs {
     my($class, $conf_dir, %args) = @_;
 
-    Authen::NZigovt->class_for('sp_cert_factory')->generate_certs(
+    Authen::NZRealMe->class_for('sp_cert_factory')->generate_certs(
         $conf_dir, %args
     );
 }
@@ -134,7 +134,7 @@ sub build_new {
                : $class->new_defaults(conf_dir => $opt{conf_dir});
 
     my $args = eval {
-        Authen::NZigovt->class_for('sp_builder')->build($self);
+        Authen::NZRealMe->class_for('sp_builder')->build($self);
     };
     if($@) {
         print STDERR "$@";
@@ -155,7 +155,7 @@ sub make_bundle {
     my $class = shift;
 
     my $sp = $class->new(@_);
-    return Authen::NZigovt->class_for('sp_builder')->make_bundle($sp);
+    return Authen::NZRealMe->class_for('sp_builder')->make_bundle($sp);
 }
 
 
@@ -211,7 +211,7 @@ sub _metadata_pathname {
 sub new_request {
     my $self = shift;
 
-    my $req = Authen::NZigovt->class_for('authen_request')->new($self, @_);
+    my $req = Authen::NZRealMe->class_for('authen_request')->new($self, @_);
     return $req;
 }
 
@@ -273,7 +273,7 @@ sub _signer {
     my $key_path = $self->signing_key_pathname
         or die "No path to signing key file";
 
-    return Authen::NZigovt->class_for('xml_signer')->new(
+    return Authen::NZRealMe->class_for('xml_signer')->new(
         key_file => $key_path,
     );
 }
@@ -292,12 +292,12 @@ sub resolve_artifact {
     die "Can't resolve artifact without original request ID\n"
         unless $args{request_id};
 
-    my $request   = Authen::NZigovt->class_for('resolution_request')->new($self, $artifact);
+    my $request   = Authen::NZRealMe->class_for('resolution_request')->new($self, $artifact);
     my $url       = $request->destination_url;
     my $soap_body = $request->soap_request;
 
     my $headers = [
-        'User-Agent: Authen-NZigovt/' . $Authen::NZigovt::VERSION,
+        'User-Agent: Authen-NZRealMe/' . $Authen::NZRealMe::VERSION,
         'Content-Type: text/xml',
         'SOAPAction: http://www.oasis-open.org/committees/security',
         'Content-Length: ' . length($soap_body),
@@ -432,7 +432,7 @@ sub _verify_assertion {
     ) || '';
     $response->set_logon_strength($strength);
     if($args{logon_strength}) {
-        $strength = Authen::NZigovt->class_for('logon_strength')->new($strength);
+        $strength = Authen::NZRealMe->class_for('logon_strength')->new($strength);
         $strength->assert_match($args{logon_strength}, $args{strength_match});
     }
 
@@ -474,7 +474,7 @@ sub _verify_assertion_signature {
 sub _build_resolution_response {
     my($self, $xc, $xml) = @_;
 
-    my $response = Authen::NZigovt->class_for('resolution_response')->new($xml);
+    my $response = Authen::NZRealMe->class_for('resolution_response')->new($xml);
 
     my($status_code) = $xc->findnodes(
         '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusCode'
@@ -765,7 +765,7 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ServiceProvider - Class representing the local SAML2 Service Provider
+Authen::NZRealMe::ServiceProvider - Class representing the local SAML2 Service Provider
 
 =head1 DESCRIPTION
 
@@ -781,7 +781,7 @@ file.
 
 Constructor.  Should not be called directly.  Instead, call:
 
-  Authen::NZigovt->service_provider( args );
+  Authen::NZRealMe->service_provider( args );
 
 The following options are recognised:
 
@@ -881,7 +881,7 @@ This will always be the file F<sp-sign-crt.pem> in the configuration directory.
 =head2 idp
 
 Accessor for an object representing the Identity Provider (See:
-L<Authen::NZigovt::IdentityProvider>.
+L<Authen::NZRealMe::IdentityProvider>.
 
 =head2 nameid_format
 
@@ -898,23 +898,23 @@ type of request.
 
 Called by the C<< nzigovt make-certs >> command to run an interactive Q&A
 session to generate either self-signed certificates or Certificate Signing
-Requests (CSRs).  Delegates to L<Authen::NZigovt::ServiceProvider::CertFactory>
+Requests (CSRs).  Delegates to L<Authen::NZRealMe::ServiceProvider::CertFactory>
 
 =head2 build_new
 
 Called by the C<< nzigovt make-meta >> command to run an interactive Q&A
 session to initialise or edit the contents of the Service Provider metadata
-file.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
+file.  Delegates to L<Authen::NZRealMe::ServiceProvider::Builder>
 
 =head2 make_bundle
 
 Called by the C<< nzigovt make-bundle >> command to create a zip archive of
 the files needed by the IdP.  The archive will include the SP metadata and
-certificate files.  Delegates to L<Authen::NZigovt::ServiceProvider::Builder>
+certificate files.  Delegates to L<Authen::NZRealMe::ServiceProvider::Builder>
 
 =head2 new_request( options )
 
-Creates a new L<Authen::NZigovt::AuthenRequest> object.  The caller would
+Creates a new L<Authen::NZRealMe::AuthenRequest> object.  The caller would
 typically use the C<as_url> method of the request to redirect the client to the
 Identity Provider's single logon service.  The request object's C<request_id>
 method should be used to get the request ID and save it in session state for
@@ -938,7 +938,7 @@ reuse of an existing logon session on the IdP.  Default: true.
 =item auth_strength => string
 
 The logon strength required.  May be supplied as a URN, or as keyword ('low',
-'mod', 'sms', etc).  See L<Authen::NZigovt::LogonStrength> for constants.
+'mod', 'sms', etc).  See L<Authen::NZRealMe::LogonStrength> for constants.
 Default: 'low'.
 
 =item relay_state => string
@@ -955,7 +955,7 @@ EntityDescriptor metadata document.
 
 =head2 sign_query_string
 
-Used by the L<Authen::NZigovt::AuthenRequest> class to create a digital
+Used by the L<Authen::NZRealMe::AuthenRequest> class to create a digital
 signature for the AuthnRequest HTTP-Redirect URL.
 
 =head2 resolve_artifact
@@ -972,7 +972,7 @@ the original request_id) must be supplied as key => value pairs, for example:
   );
 
 The assertion returned by the Identity Provider will be validated and its
-contents returned as an L<Authen::NZigovt::ResolutionResponse> object.  If an
+contents returned as an L<Authen::NZRealMe::ResolutionResponse> object.  If an
 unexpected error occurs while resolving the artifact or while validating the
 resulting assertion, an exception will be thrown.  Expected error conditions
 (eg: timeouts, user presses 'Cancel' etc) will not throw an exception, but will
@@ -988,7 +988,7 @@ string.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

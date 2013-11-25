@@ -1,4 +1,4 @@
-package Authen::NZigovt::LogonStrength;
+package Authen::NZRealMe::LogonStrength;
 
 use strict;
 use warnings;
@@ -82,7 +82,7 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::LogonStrength - Manipulate NZ igovt logon service AuthnContextClassRef values
+Authen::NZRealMe::LogonStrength - Manipulate NZ igovt logon service AuthnContextClassRef values
 
 =head1 DESCRIPTION
 
@@ -102,13 +102,13 @@ The following constants are defined for referring to URNs:
 
 =over 4
 
-=item Authen::NZigovt::LogonStrength::STRENGTH_LOW
+=item Authen::NZRealMe::LogonStrength::STRENGTH_LOW
 
-=item Authen::NZigovt::LogonStrength::STRENGTH_MODERATE
+=item Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE
 
-=item Authen::NZigovt::LogonStrength::STRENGTH_MODERATE_SID
+=item Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE_SID
 
-=item Authen::NZigovt::LogonStrength::STRENGTH_MODERATE_SMS
+=item Authen::NZRealMe::LogonStrength::STRENGTH_MODERATE_SMS
 
 =back
 
@@ -144,7 +144,7 @@ the igovt logon service SAML v2.0 Messaging Specification are used.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

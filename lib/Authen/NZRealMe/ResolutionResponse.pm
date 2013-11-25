@@ -1,4 +1,4 @@
-package Authen::NZigovt::ResolutionResponse;
+package Authen::NZRealMe::ResolutionResponse;
 
 use warnings;
 use strict;
@@ -56,12 +56,12 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ResolutionResponse - Encapsulates the response from the IdP to
+Authen::NZRealMe::ResolutionResponse - Encapsulates the response from the IdP to
 the artifact resolution request
 
 =head1 DESCRIPTION
 
-This package is used by the L<Authen::NZigovt::ServiceProvider> to represent the
+This package is used by the L<Authen::NZRealMe::ServiceProvider> to represent the
 response received from the Identity Provider.
 
 The C<is_success> or C<is_error> methods can be used to determine whether the
@@ -174,7 +174,7 @@ response object and are not intended for use by the calling application.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

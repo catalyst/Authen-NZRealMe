@@ -1,4 +1,4 @@
-package Authen::NZigovt::AuthenRequest;
+package Authen::NZRealMe::AuthenRequest;
 
 use strict;
 use warnings;
@@ -37,7 +37,7 @@ sub _init {
     $self->{request_time}    = $sp->now_as_iso();
     $self->{nameid_format}   = $sp->nameid_format();
 
-    my $strength_class       = Authen::NZigovt->class_for('logon_strength');
+    my $strength_class       = Authen::NZRealMe->class_for('logon_strength');
     $self->{auth_strength}   = $strength_class->new($self->{auth_strength});
 
     my $xml = $self->_generate_authn_request_doc();
@@ -208,11 +208,11 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::AuthenRequest - Generate a SAML2 AuthenRequest message
+Authen::NZRealMe::AuthenRequest - Generate a SAML2 AuthenRequest message
 
 =head1 DESCRIPTION
 
-This package is used by the L<Authen::NZigovt::ServiceProvider> to generate a
+This package is used by the L<Authen::NZRealMe::ServiceProvider> to generate a
 SAML2 AuthnRequest message and send it to the NZ igovt logon service Identity
 provider using the HTTP-Redirect binding.
 
@@ -270,7 +270,7 @@ If not provided, this parameter will default to 'true'.
 
 Accessor for the C<auth_strength> parameter optionally passed to the
 constructor.  If a value is provided, it will be passed to the constructor for
-L<Authen::NZigovt::LogonStrength>.  If not provided, this parameter will
+L<Authen::NZRealMe::LogonStrength>.  If not provided, this parameter will
 default to the URN for low strength logons.
 
 =head2 as_url
@@ -294,7 +294,7 @@ diagnostic aid.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

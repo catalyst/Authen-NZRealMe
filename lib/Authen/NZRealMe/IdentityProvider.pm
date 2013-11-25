@@ -1,4 +1,4 @@
-package Authen::NZigovt::IdentityProvider;
+package Authen::NZRealMe::IdentityProvider;
 
 use strict;
 use warnings;
@@ -50,7 +50,7 @@ sub verify_signature {
     my($self, $xml) = @_;
 
     eval {
-        my $verifier = Authen::NZigovt->class_for('xml_signer')->new(
+        my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
             pub_cert_text => $self->signing_cert_pem_data(),
         );
         $verifier->verify($xml);
@@ -149,7 +149,7 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::IdentityProvider - Class representing the NZ igovt Identity Provider
+Authen::NZRealMe::IdentityProvider - Class representing the NZ igovt Identity Provider
 
 =head1 DESCRIPTION
 
@@ -204,7 +204,7 @@ error.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

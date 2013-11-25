@@ -6,17 +6,17 @@ use FindBin;
 use File::Spec;
 use lib File::Spec->catdir($FindBin::Bin, 'test-lib');
 
-use AuthenNZigovtTestHelper;
+use AuthenNZRealMeTestHelper;
 
-require Authen::NZigovt;
+require Authen::NZRealMe;
 
-ok(1, 'successfully loaded the Authen::NZigovt package');
+ok(1, 'successfully loaded the Authen::NZRealMe package');
 
 my $conf_dir = test_conf_dir();
 
-my $sp = Authen::NZigovt->service_provider( conf_dir => $conf_dir );
+my $sp = Authen::NZRealMe->service_provider( conf_dir => $conf_dir );
 
-isa_ok($sp, 'Authen::NZigovt::ServiceProvider');
+isa_ok($sp, 'Authen::NZRealMe::ServiceProvider');
 
 is($sp->conf_dir, $conf_dir, "SP's conf_dir looks good");
 is($sp->entity_id, 'https://www.example.govt.nz/app/sample',
@@ -30,7 +30,7 @@ is($sp->organization_url, 'https://www.example.govt.nz/',
 
 my $idp = $sp->idp;
 
-isa_ok($idp, 'Authen::NZigovt::IdentityProvider');
+isa_ok($idp, 'Authen::NZRealMe::IdentityProvider');
 is($idp->entity_id, 'https://www.mts-logon.i.govt.nz/mts2',
     "IdP EntityID loaded from metadata looks good");
 

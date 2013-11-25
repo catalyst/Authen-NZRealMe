@@ -1,4 +1,4 @@
-package Authen::NZigovt::ResolutionRequest;
+package Authen::NZRealMe::ResolutionRequest;
 
 use warnings;
 use strict;
@@ -89,12 +89,12 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ResolutionRequest - Generate a SOAP request for resolving an
+Authen::NZRealMe::ResolutionRequest - Generate a SOAP request for resolving an
 artifact to an FLT
 
 =head1 DESCRIPTION
 
-This package is used by the L<Authen::NZigovt::ServiceProvider> to generate a
+This package is used by the L<Authen::NZRealMe::ServiceProvider> to generate a
 properly formatted SOAP Request containing a SAML2 ArtifactResolve message to
 resolve an artifact to an FLT.
 
@@ -135,7 +135,7 @@ Identity Provider's artifact resolution service.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

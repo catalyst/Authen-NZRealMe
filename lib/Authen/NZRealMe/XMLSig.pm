@@ -1,11 +1,11 @@
-package Authen::NZigovt::XMLSig;
+package Authen::NZRealMe::XMLSig;
 
 use strict;
 use warnings;
 
 =head1 NAME
 
-Authen::NZigovt::XMLSig - XML digital signature generation/verification
+Authen::NZRealMe::XMLSig - XML digital signature generation/verification
 
 =head1 DESCRIPTION
 
@@ -348,13 +348,13 @@ sub _slurp_file {
 
 =head1 SYNOPSIS
 
-  my $signer = Authen::NZigovt->class_for('xml_signer')->new(
+  my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
       key_file => $path_to_private_key_file,
   );
 
   my $signed_xml = $signer->sign($xml, $target_id);
 
-  my $verifier = Authen::NZigovt->class_for('xml_signer')->new(
+  my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
       pub_cert_text => $self->signing_cert_pem_data(),
   );
 
@@ -366,7 +366,7 @@ sub _slurp_file {
 
 Constructor.  Should not be called directly.  Instead, call:
 
-  Authen::NZigovt->class_for('xml_signer')->new( options );
+  Authen::NZRealMe->class_for('xml_signer')->new( options );
 
 Options are passed in as key => value pairs.
 
@@ -428,7 +428,7 @@ used to retrieve the text which defines the certificate.
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

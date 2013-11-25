@@ -2,9 +2,9 @@
 
 use Test::More tests => 1;
 
-use Authen::NZigovt;
+use Authen::NZRealMe;
 
-diag( "Testing Authen::NZigovt $Authen::NZigovt::VERSION, Perl $], $^X" );
+diag( "Testing Authen::NZRealMe $Authen::NZRealMe::VERSION, Perl $], $^X" );
 
 foreach my $key (qw(
     service_provider
@@ -17,7 +17,7 @@ foreach my $key (qw(
     authen_request
     logon_strength
 )) {
-    Authen::NZigovt->class_for($key);
+    Authen::NZRealMe->class_for($key);
 }
 
 ok(1, 'successfully loaded all support modules');

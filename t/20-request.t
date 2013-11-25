@@ -10,19 +10,19 @@ use File::Spec;
 use lib File::Spec->catdir($FindBin::Bin, 'test-lib');
 use Time::Local qw(timegm);
 
-use AuthenNZigovtTestHelper;
+use AuthenNZRealMeTestHelper;
 
-require Authen::NZigovt;
+require Authen::NZRealMe;
 
 my $conf_dir = test_conf_dir();
 
-my $sp = Authen::NZigovt->service_provider( conf_dir => $conf_dir );
+my $sp = Authen::NZRealMe->service_provider( conf_dir => $conf_dir );
 
-isa_ok($sp, 'Authen::NZigovt::ServiceProvider');
+isa_ok($sp, 'Authen::NZRealMe::ServiceProvider');
 
 my $req = $sp->new_request();
 
-isa_ok($req, 'Authen::NZigovt::AuthenRequest');
+isa_ok($req, 'Authen::NZRealMe::AuthenRequest');
 
 my $req_id = $req->request_id;
 like($req_id, qr{^\w{16,}$}, "request id comprises at least 16 'word' chars");
@@ -45,7 +45,7 @@ is($req->allow_create, 'false', 'request does not enable account creation by def
 is($req->force_auth, 'true', 'request does force logon by default');
 
 my $strength = $req->auth_strength;
-isa_ok($strength, 'Authen::NZigovt::LogonStrength');
+isa_ok($strength, 'Authen::NZRealMe::LogonStrength');
 eval { $strength->assert_match('low', 'exact'); };
 is($@, '', "default auth strength is low");
 
@@ -75,13 +75,13 @@ is($sig_alg, 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
 like($sig, qr/^$b64chr{200,}=*$/, 'signature is base64 encoded');
 
 my $cert_path = File::Spec->catfile(test_conf_dir(), 'sp-sign-crt.pem');
-my $signer = Authen::NZigovt->class_for('xml_signer')->new(
+my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
     pub_cert_file => $cert_path,
 );
 ok($signer->_verify_rsa_signature($plaintext, $sig),
     'signature verified successfully using public key');
 
-my $xml = Authen::NZigovt::AuthenRequest->_request_from_uri($url);
+my $xml = Authen::NZRealMe::AuthenRequest->_request_from_uri($url);
 ok($xml, 'extracted XML request for analysis');
 
 xml_found_node_ok($xml, q{/nssamlp:AuthnRequest});
@@ -111,7 +111,7 @@ is($req2->force_auth,   'false',   'request does not force logon');
 is($req2->relay_state,  'pending', 'request has expected relay state');
 
 $strength = $req2->auth_strength;
-isa_ok($strength, 'Authen::NZigovt::LogonStrength');
+isa_ok($strength, 'Authen::NZRealMe::LogonStrength');
 eval { $strength->assert_match('mod', 'minimum'); };
 is($@, '', "auth strength is at least 'moderate'");
 eval { $strength->assert_match('mod', 'exact'); };
@@ -140,7 +140,7 @@ ok($signer->_verify_rsa_signature($plaintext, $sig),
     'signature verified successfully using public key');
 
 
-$xml = Authen::NZigovt::AuthenRequest->_request_from_uri($url);
+$xml = Authen::NZRealMe::AuthenRequest->_request_from_uri($url);
 ok($xml, 'extracted XML request for analysis');
 
 xml_found_node_ok($xml, q{/nssamlp:AuthnRequest});

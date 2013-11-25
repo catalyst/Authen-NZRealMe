@@ -1,4 +1,4 @@
-package Authen::NZigovt::ServiceProvider::CertFactory;
+package Authen::NZRealMe::ServiceProvider::CertFactory;
 
 use warnings;
 use strict;
@@ -279,7 +279,7 @@ __END__
 
 =head1 NAME
 
-Authen::NZigovt::ServiceProvider::CertFactory - generate certificates or CSRs
+Authen::NZRealMe::ServiceProvider::CertFactory - generate certificates or CSRs
 
 =head1 DESCRIPTION
 
@@ -303,7 +303,7 @@ Requests (CSRs).
 
 =head1 SEE ALSO
 
-See L<Authen::NZigovt> for documentation index.
+See L<Authen::NZRealMe> for documentation index.
 
 
 =head1 LICENSE AND COPYRIGHT

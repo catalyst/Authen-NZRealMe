@@ -1,4 +1,4 @@
-package Authen::NZigovt;
+package Authen::NZRealMe;
 
 use warnings;
 use strict;
@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-Authen::NZigovt - Tools for integrating with the New Zealand igovt logon service (now "RealMe")
+Authen::NZRealMe - Tools for integrating with the New Zealand igovt logon service (now "RealMe")
 
 =head1 DESCRIPTION
 
@@ -55,15 +55,15 @@ Run C<< nzigovt --help >> for more information about using the command-line tool
 
 
 my %class_map = (
-    service_provider    => 'Authen::NZigovt::ServiceProvider',
-    identity_provider   => 'Authen::NZigovt::IdentityProvider',
-    xml_signer          => 'Authen::NZigovt::XMLSig',
-    sp_builder          => 'Authen::NZigovt::ServiceProvider::Builder',
-    sp_cert_factory     => 'Authen::NZigovt::ServiceProvider::CertFactory',
-    resolution_request  => 'Authen::NZigovt::ResolutionRequest',
-    resolution_response => 'Authen::NZigovt::ResolutionResponse',
-    authen_request      => 'Authen::NZigovt::AuthenRequest',
-    logon_strength      => 'Authen::NZigovt::LogonStrength',
+    service_provider    => 'Authen::NZRealMe::ServiceProvider',
+    identity_provider   => 'Authen::NZRealMe::IdentityProvider',
+    xml_signer          => 'Authen::NZRealMe::XMLSig',
+    sp_builder          => 'Authen::NZRealMe::ServiceProvider::Builder',
+    sp_cert_factory     => 'Authen::NZRealMe::ServiceProvider::CertFactory',
+    resolution_request  => 'Authen::NZRealMe::ResolutionRequest',
+    resolution_response => 'Authen::NZRealMe::ResolutionResponse',
+    authen_request      => 'Authen::NZRealMe::AuthenRequest',
+    logon_strength      => 'Authen::NZRealMe::LogonStrength',
 );
 
 
@@ -184,7 +184,7 @@ sub _dispatch_resolve {
 
 
 sub _dispatch_version {
-    print $Authen::NZigovt::VERSION, "\n";
+    print $Authen::NZRealMe::VERSION, "\n";
 }
 
 
@@ -273,7 +273,7 @@ understand the SAML protocol interaction that is followed for each user logon:
 
 The igovt logon server is a SAML Identity Provider or 'IdP'.
 
-The agency web site is a SAML Service Provider or 'SP'.  The Authen::NZigovt
+The agency web site is a SAML Service Provider or 'SP'.  The Authen::NZRealMe
 module implements the SAML SP role on behalf of the agency web app.
 
 To integrate this module with your application, you need to make two calls to
@@ -289,7 +289,7 @@ user.
 
 You will add the igovt logon button image to your application templates.  The
 button does not link directly to the igovt logon server, but instead links to
-your application which in turn uses the Authen::NZigovt module to generate a
+your application which in turn uses the Authen::NZRealMe module to generate a
 SAML AuthnRequest message encoded in a URL and returns it as a 302 redirect.
 
 The request includes a unique 'Request ID' which you must save in the user
@@ -298,9 +298,9 @@ uses generic framework method calls to save the Request ID and return the
 redirect URL, you will need to replace these with specific calls for the
 framework you are using:
 
-  use Authen::NZigovt;
+  use Authen::NZRealMe;
 
-  my $sp  = Authen::NZigovt->service_provider( conf_dir => $path_to_config_directory );
+  my $sp  = Authen::NZRealMe->service_provider( conf_dir => $path_to_config_directory );
   my $req = $sp->new_request(
       allow_create => 0,         # set to 1 for initial registration
       # other options here
@@ -353,7 +353,7 @@ details of the condition which meant the logon was unsuccessful.  In the case
 of an unexpected error, the method call will generate an exception which you
 will need to catch and log.
 
-  my $sp   = Authen::NZigovt->service_provider( conf_dir => $path_to_config_directory );
+  my $sp   = Authen::NZRealMe->service_provider( conf_dir => $path_to_config_directory );
   my $resp = eval {
       $sp->resolve_artifact(
           artifact   => $framework->param('SAMLart'),
@@ -392,7 +392,7 @@ C<< $resp->status_message >> you should ensure that you apply appropriate HTML
 escaping.
 
 For reference documentation about the Service Provider API, see
-L<Authen::NZigovt::ServiceProvider>.
+L<Authen::NZRealMe::ServiceProvider>.
 
 
 =head1 CONFIGURATION
@@ -546,7 +546,7 @@ command.
 
 =head1 API REFERENCE
 
-The C<Authen::NZigovt> class provides entry points for interactions with the
+The C<Authen::NZRealMe> class provides entry points for interactions with the
 igovt logon service and is also responsible for dispatching the various
 command implemented by the C<nzigovt> command-line utility.
 
@@ -556,14 +556,14 @@ This method is the main entry point for the API.  It returns a service_provider
 object that will then be used to generate AuthnRequest messages and to resolve
 the returned artifacts.  Unless you have set up alternative class mappings (see
 below), this method is a simple wrapper for the
-L<Authen::NZigovt::ServiceProvider> constructor.
+L<Authen::NZRealMe::ServiceProvider> constructor.
 
 =head2 class_for( identifier )
 
 This method forms half of a simple dependency injection framework.  Rather
 than hard-code the classnames for the various parts of the API, this method
 is used to turn a simple functional name (e.g.: C<'service_provider'>) into a
-classname like C<Authen::NZigovt::ServiceProvider>.  This method will also
+classname like C<Authen::NZRealMe::ServiceProvider>.  This method will also
 load the loads the package using C<require>.
 
 You would not usually call this method directly - instead you would use the
@@ -595,39 +595,39 @@ classes.
 
 =item *
 
-L<Authen::NZigovt::ServiceProvider>
+L<Authen::NZRealMe::ServiceProvider>
 
 =item *
 
-L<Authen::NZigovt::ServiceProvider::Builder>
+L<Authen::NZRealMe::ServiceProvider::Builder>
 
 =item *
 
-L<Authen::NZigovt::ServiceProvider::CertFactory>
+L<Authen::NZRealMe::ServiceProvider::CertFactory>
 
 =item *
 
-L<Authen::NZigovt::IdentityProvider>
+L<Authen::NZRealMe::IdentityProvider>
 
 =item *
 
-L<Authen::NZigovt::AuthenRequest>
+L<Authen::NZRealMe::AuthenRequest>
 
 =item *
 
-L<Authen::NZigovt::ResolutionRequest>
+L<Authen::NZRealMe::ResolutionRequest>
 
 =item *
 
-L<Authen::NZigovt::ResolutionResponse>
+L<Authen::NZRealMe::ResolutionResponse>
 
 =item *
 
-L<Authen::NZigovt::LogonStrength>
+L<Authen::NZRealMe::LogonStrength>
 
 =item *
 
-L<Authen::NZigovt::XMLSig>
+L<Authen::NZRealMe::XMLSig>
 
 =back
 
@@ -644,7 +644,7 @@ There is no implementation of SingleLogOut functionality.
 
 Please report any bugs or feature requests to
 C<bug-authen-nzigovt at rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Authen-NZigovt>.  I will be
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Authen-NZRealMe>.  I will be
 notified, and then you'll automatically be notified of progress on your bug as
 I make changes.
 
@@ -653,7 +653,7 @@ I make changes.
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Authen::NZigovt
+    perldoc Authen::NZRealMe
 
 You can also look for information at:
 
@@ -661,23 +661,23 @@ You can also look for information at:
 
 =item * RT: CPAN's request tracker
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Authen-NZigovt>
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Authen-NZRealMe>
 
 =item * Source code repository on GitHub
 
-L<https://github.com/grantm/Authen-NZigovt>
+L<https://github.com/grantm/Authen-NZRealMe>
 
 =item * AnnoCPAN: Annotated CPAN documentation
 
-L<http://annocpan.org/dist/Authen-NZigovt>
+L<http://annocpan.org/dist/Authen-NZRealMe>
 
 =item * CPAN Ratings
 
-L<http://cpanratings.perl.org/d/Authen-NZigovt>
+L<http://cpanratings.perl.org/d/Authen-NZRealMe>
 
 =item * Search CPAN
 
-L<http://search.cpan.org/dist/Authen-NZigovt/>
+L<http://search.cpan.org/dist/Authen-NZRealMe/>
 
 =back
 
