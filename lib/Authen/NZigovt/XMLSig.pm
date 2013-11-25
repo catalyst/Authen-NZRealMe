@@ -149,7 +149,7 @@ sub _make_signature_xml {
 
     my $digest     = $self->_xml_digest($frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
-    my $sig_value  = $self->rsa_signature($self->_c14n_xml($sig_info));
+    my $sig_value  = $self->rsa_signature($self->_ec14n_xml($sig_info));
 
     return qq{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
         ${sig_info}
@@ -186,7 +186,7 @@ sub _signed_info_xml {
     my($self, $frag_id, $frag_digest) = @_;
 
     return qq{<dsig:SignedInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments" />
+            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
             <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
             <dsig:Reference URI="#${frag_id}">
                 <dsig:Transforms>
