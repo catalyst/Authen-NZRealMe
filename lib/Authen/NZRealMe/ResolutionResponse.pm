@@ -117,7 +117,7 @@ otherwise.
 
 =head2 is_timeout
 
-Returns true if the igovt logon service timed out waiting for the user to enter
+Returns true if the RealMe Login service timed out waiting for the user to enter
 their account details.  After this error, it is safe to present the user with a
 "try again" link.
 
@@ -131,7 +131,7 @@ again" link.
 
 =head2 is_not_registered
 
-Returns true if the logon was successful but the user's igovt logon account
+Returns true if the logon was successful but the user's RealMe Login account
 has not been associated with this service provider (agency web site).
 
 This situation will only occur if the original authentication request specified

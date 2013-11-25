@@ -213,8 +213,8 @@ Authen::NZRealMe::AuthenRequest - Generate a SAML2 AuthenRequest message
 =head1 DESCRIPTION
 
 This package is used by the L<Authen::NZRealMe::ServiceProvider> to generate a
-SAML2 AuthnRequest message and send it to the NZ igovt logon service Identity
-provider using the HTTP-Redirect binding.
+SAML2 AuthnRequest message and send it to the NZ RealMe Login service IdP
+(Identity Provider) using the HTTP-Redirect binding.
 
 =head1 METHODS
 
@@ -287,7 +287,7 @@ MIME Base64 encoding have been applied.
 
 =head2 dump_request
 
-This method is used by the C<< nzigovt dump-req >> command to decode and
+This method is used by the C<< nzrealme dump-req >> command to decode and
 decompress the SAMLRequest parameter from a generated URL.  It is provided as a
 diagnostic aid.
 

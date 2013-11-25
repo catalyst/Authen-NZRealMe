@@ -10,7 +10,7 @@ Authen::NZRealMe::XMLSig - XML digital signature generation/verification
 =head1 DESCRIPTION
 
 This module implements the subset of http://www.w3.org/TR/xmldsig-core/
-required to interface to the New Zealand igovt logon service using SAML 2.0
+required to interface with the New Zealand RealMe Login service using SAML 2.0
 messaging.
 
 =cut

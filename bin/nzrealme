@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 ##############################################################################
 #
-# Tools for interacting with the New Zealand 'igovt Logon Service'
-# (see: https://i.govt.nz/ ).
+# Tools for interacting with the New Zealand 'RealMe Login Service'
+# (see: https://www.realme.govt.nz/ ).
 #
-# These tools ARE NOT produced by, nor endorsed by the Department of Internal
-# Affairs who operate the igovt logon service.  They are merely an implemention
-# of the published protocols.
+# These tools ARE NOT produced by, nor endorsed by New Zealand Post or the
+# Department of Internal Affairs who jointly operate the RealMe Login service.
+# They are merely an implemention # of the published protocols.
 #
 # For more information, see:
 #
-#   nzigovt --help
+#   nzrealme --help
 #
 
 use strict;
@@ -55,11 +55,11 @@ __END__
 
 =head1 NAME
 
-nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
+nzrealme - Tools for interacting with the New Zealand 'RealMe Login' service
 
 =head1 SYNOPSIS
 
-  nzigovt [options] <command> [args ...]
+  nzrealme [options] <command> [args ...]
 
   Commands:
 
@@ -84,11 +84,11 @@ nzigovt - Tools for interacting with the New Zealand 'igovt Logon Service'
 
 =head1 DESCRIPTION
 
-The C<nzigovt> script and related modules from the L<Authen::NZRealMe>
-distribution provide tools for interacting with the New Zealand 'igovt logon
-service' operated by the Department of Internal Affairs.  These tools ARE NOT
-produced by nor endorsed by the Department of Internal Affairs.  They are
-merely an implemention of the published protocols.
+The C<nzrealme> script and related modules from the L<Authen::NZRealMe>
+distribution provide tools for interacting with the New Zealand RealMe Login
+service operated by New Zeand Post and the Department of Internal Affairs.
+These tools ARE NOT produced by nor endorsed by NZPost or DIA.  They are merely
+an implemention of the published protocols.
 
 =head1 COMMANDS
 
@@ -121,7 +121,7 @@ the Identity Provider.
 Generate a URL containing a SAML AuthnRequest - for initiating a logon.
 
 Note: By default, the AuthnRequest will have the AllowCreate flag set to false
-(i.e.: the user must already have an igovt logon associated with this SP).  Use
+(i.e.: the user must already have an RealMe Login associated with this SP).  Use
 C<--allow-create> if you want the request to allow a new account and FLT to be
 created.
 
@@ -130,7 +130,7 @@ created.
 Takes a URL containing a SAML AuthnRequest; decodes it; and dumps the XML.  For
 example:
 
-  nzigovt -c /etc/igovt-conf make-req | nzigovt -c /etc/igovt-conf dump-req
+  nzrealme -c /etc/realme-conf make-req | nzrealme -c /etc/realme-conf dump-req
 
 This utility can be used to dump AuthnRequests produced by any SAML
 implementation.

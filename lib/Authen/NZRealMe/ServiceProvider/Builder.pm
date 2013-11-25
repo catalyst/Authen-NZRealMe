@@ -8,15 +8,15 @@ use Term::ReadLine  qw();
 use File::Path      qw(rmtree);
 use File::Copy      qw(copy);
 
-my $prog_name = 'nzigovt';
+my $prog_name = 'nzrealme';
 my $term      = undef;
 
 my @fields = (
 
     entity_id => <<EOF,
-The 'Entity ID' is a URL that identifies the igovt logon service privacy
+The 'Entity ID' is a URL that identifies the RealMe Login service privacy
 domain that your service provider is a part of.  You must supply a value
-here that has been registered with (or provided to you by) the igovt logon
+here that has been registered with (or provided to you by) the RealMe Login
 service. The format for this value is:
 
   https://<sp-domain>/<privacy-realm>/<application-name>
@@ -146,7 +146,7 @@ sub _check_conf {
         sp-sign-crt.pem sp-sign-key.pem sp-ssl-crt.pem sp-ssl-key.pem
     );
     if(@missing) {
-        my $hint = "Use 'nzigovt make-certs' to generate certificates";
+        my $hint = "Use 'nzrealme make-certs' to generate certificates";
         if(not grep /-key.pem/, @missing  and  -e "$dir/sp-sign.csr") {
             $hint = "You must save the signed certificate files you received "
                   . "from the CA\n(Certification Authority) using the "
@@ -242,12 +242,12 @@ needed by the IdP.
 
 =head2 build
 
-Called by the C<< nzigovt make-meta >> command to create or edit the Service
+Called by the C<< nzrealme make-meta >> command to create or edit the Service
 Provider metadata file through a series of interactive questions and answers.
 
 =head2 make_bundle
 
-Called by the C<< nzigovt make-bundle >> command to create a zip archive of
+Called by the C<< nzrealme make-bundle >> command to create a zip archive of
 the files needed by the IdP.  The archive will include the SP metadata and
 certificate files.  Delegates to L<Authen::NZRealMe::ServiceProvider::Builder>
 

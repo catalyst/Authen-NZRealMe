@@ -6,18 +6,14 @@ use strict;
 
 =head1 NAME
 
-Authen::NZRealMe - Tools for integrating with the New Zealand igovt logon service (now "RealMe")
+Authen::NZRealMe - Tools for integrating with the New Zealand RealMe login service (formerly "igovt logon")
 
 =head1 DESCRIPTION
 
 This module provides an API for integrating your application with the New
-Zealand igovt logon service using SAML 2.0 messaging.
+Zealand RealMe login service using SAML 2.0 messaging.
 
-I<Note>: Since the "igovt logon service" was rebranded to "RealMe" in 2013, this
-module is now misnamed, however it does continue to work with the new RealMe
-service.  The code may be re-released under a new name in the future.
-
-The distribution also includes a command-line tool called C<nzigovt> which can
+The distribution also includes a command-line tool called C<nzrealme> which can
 be used for:
 
 =over 4
@@ -49,7 +45,8 @@ resolving SAMLart artifact responses and validating the response
 
 =back
 
-Run C<< nzigovt --help >> for more information about using the command-line tool.
+Run C<< nzrealme --help >> for more information about using the command-line
+tool.
 
 =cut
 
@@ -209,13 +206,13 @@ __END__
 You cannot simply drop some config files in a directory and start
 authenticating users.  Your agency will need to establish a Service Provider
 role with the logon service and complete the required integration steps.  Your
-first step should be to make contact with the igovt logon service and arrange a
-meeting.
+first step should be to make contact with the RealMe login service and arrange
+a meeting.
 
 
 =head1 CODE INTEGRATION
 
-To integrate the igovt logon service with your application, you will need to:
+To integrate the RealMe login service with your application, you will need to:
 
 =over 4
 
@@ -226,7 +223,7 @@ complete a number of configuration steps (see L</CONFIGURATION> below)
 =item 2
 
 link this module into your application to initiate the logon (by redirecting
-the user to the igovt logon service) and to 'consume' the login information
+the user to the RealMe login service) and to 'consume' the login information
 when the user is redirected back to your site
 
 =back
@@ -234,12 +231,12 @@ when the user is redirected back to your site
 To understand how this module must be linked into your application, it helps to
 understand the SAML protocol interaction that is followed for each user logon:
 
-  Agency Web Site                                 igovt logon server
+  Agency Web Site                                 RealMe login server
 
                      .-------------------------.
                      | 1. user visits agency   |
                .-----|    web site and clicks  |
-               |     |   'igovt logon' button  |
+               |     |   'RealMe login' button |
                v     '-------------------------'
   .-------------------------.
   | 2. SAML AuthnRequest    |
@@ -271,7 +268,7 @@ understand the SAML protocol interaction that is followed for each user logon:
  '-------------------------'
   API call returns
 
-The igovt logon server is a SAML Identity Provider or 'IdP'.
+The RealMe login server is a SAML Identity Provider or 'IdP'.
 
 The agency web site is a SAML Service Provider or 'SP'.  The Authen::NZRealMe
 module implements the SAML SP role on behalf of the agency web app.
@@ -282,13 +279,13 @@ the second to resolve the returned artifact and return the Federated Logon Tag
 (FLT) which identifies the user (steps 6 thru 8).
 
 It is your responsibility to create a persistent association in your
-application data store between your user record and the igovt FLT for that
+application data store between your user record and the RealMe FLT for that
 user.
 
 =head2 Authentication Request
 
-You will add the igovt logon button image to your application templates.  The
-button does not link directly to the igovt logon server, but instead links to
+You will add the RealMe login button image to your application templates.  The
+button does not link directly to the RealMe login server, but instead links to
 your application which in turn uses the Authen::NZRealMe module to generate a
 SAML AuthnRequest message encoded in a URL and returns it as a 302 redirect.
 
@@ -306,11 +303,11 @@ framework you are using:
       # other options here
   );
 
-  $framework->set_state(igovt_request_id => $req->request_id);
+  $framework->set_state(login_request_id => $req->request_id);
 
   return $framework->redirect($req->as_url);  # Use HTTP status 302
 
-Your code does not need to explicitly reference the igovt logon service domain
+Your code does not need to explicitly reference the RealMe login service domain
 or URL - these details are handled automatically by the configuration.
 
 =head2 Artifact Resolution
@@ -357,14 +354,14 @@ will need to catch and log.
   my $resp = eval {
       $sp->resolve_artifact(
           artifact   => $framework->param('SAMLart'),
-          request_id => $framework->get_state('igovt_request_id'),
+          request_id => $framework->get_state('login_request_id'),
       );
   };
   if($@) {
       # handle catastrophic failures (e.g.: malformed response) here
   }
   if($resp->is_success) {
-      $framework->set_state(igovt_flt => $resp->flt);
+      $framework->set_state(login_flt => $resp->flt);
       # ... redirect to main menu etc
   }
   elsif($resp->is_timeout) {
@@ -380,7 +377,7 @@ will need to catch and log.
   else {
       # Some other failure occurred, user might like to try again later.
       # Should present $resp->status_message to user and also give contact
-      # details for igovt Help Desk
+      # details for RealMe Help Desk
   }
 
 Note: there are two different categories of 'error': the C<resolve_artifact()>
@@ -427,10 +424,10 @@ and give it the correct name.
 
 This certificate file is used for generating digital signatures for the SP
 metadata file and SAML authentication requests.  For your initial integration
-with the igovt logon service development IdP ('MTS'), certificate key-pair
+with the RealMe login service development IdP ('MTS'), certificate key-pair
 files will be provided to you.  For staging (ITE) and production, you will need
 to generate your own and provide the certificate files (not the private key
-files) to the igovt logon service.
+files) to the RealMe login service.
 
 =item C<sp-sign-key.pem>
 
@@ -450,7 +447,7 @@ This private key is paired with the F<sp-ssl-crt.pem> certificate.
 =head2 Generating Config Files
 
 You must first decide which directory your config files will be stored in.
-The examples below assume a config directory path of C</etc/nzigovt>.
+The examples below assume a config directory path of C</etc/nzrealme>.
 
 =head3 Certificates
 
@@ -481,24 +478,24 @@ into your config directory and rename as follows:
 
 =item ITE (Staging)
 
-For the ITE environment you can generate self-signed certs.  The C<nzigovt>
+For the ITE environment you can generate self-signed certs.  The C<nzrealme>
 tool can prompt you interactively for the required parameters:
 
-  nzigovt --conf-dir /etc/nzigovt make-certs
+  nzrealme --conf-dir /etc/nzrealme make-certs
 
 or you can provide them on the command-line:
 
-  nzigovt --conf-dir /etc/nzigovt make-certs --env ITE \
+  nzrealme --conf-dir /etc/nzrealme make-certs --env ITE \
     --org="Department of Innovation" --domain="innovation.govt.nz"
 
 =item PROD (Production)
 
-For the production environment you can use the C<nzigovt> tool to generate
+For the production environment you can use the C<nzrealme> tool to generate
 Certificate Signing Requests which you will then submit to a Certification
 Authority who will issue signed certificate files.  Save them in the config
 directory using the filenames listed above.
 
-  nzigovt --conf-dir /etc/nzigovt make-certs --env PROD ...
+  nzrealme --conf-dir /etc/nzrealme make-certs --env PROD ...
 
 =back
 
@@ -507,7 +504,7 @@ directory using the filenames listed above.
 After you have generated the certificates, you can generate a metadata file
 with the command:
 
-  nzigovt --conf-dir /etc/nzigovt make-meta
+  nzrealme --conf-dir /etc/nzrealme make-meta
 
 You will be prompted to provide the necessary details and can re-run the
 command to revise your answers.
@@ -515,12 +512,12 @@ command to revise your answers.
 Note: You can't simply edit the XML metadata file, because a digital signature
 is added when the file is saved.
 
-You will need to provide the SP metadata file to the igovt logon service (via
+You will need to provide the SP metadata file to the RealMe login service (via
 an upload to the shared workspace).  For ITE and PROD you will also need to
 provide the certificate files.  You can assemble a 'bundle' of the required
 files with this command:
 
-  nzigovt --conf-dir /etc/nzigovt make-bundle
+  nzrealme --conf-dir /etc/nzrealme make-bundle
 
 
 =head1 TESTING
@@ -529,7 +526,7 @@ Normally your application would generate an authentication request URL and
 redirect the client to it, however it is also possible to generate one from the
 command-line:
 
-  nzigovt --conf-dir /etc/nzigovt make-req
+  nzrealme --conf-dir /etc/nzrealme make-req
 
 You can paste this URL into a browser and complete a log on.  Once you have
 logged on you will be redirected back to the URL for the ACS (as specified in
@@ -537,7 +534,7 @@ the SP metadata file that you uploaded).  You can copy the ACS URL from your
 browser and paste it into the following command to resolve the artifact passed
 in the URL to an FLT:
 
-  nzigovt --conf-dir /etc/nzigovt resolve <ACS URL> <Request ID>
+  nzrealme --conf-dir /etc/nzrealme resolve <ACS URL> <Request ID>
 
 The ACS URL will contain special characters that may need to be quoted.  You'll
 also need to supply the Request ID which was output by the original C<make-req>
@@ -547,8 +544,8 @@ command.
 =head1 API REFERENCE
 
 The C<Authen::NZRealMe> class provides entry points for interactions with the
-igovt logon service and is also responsible for dispatching the various
-command implemented by the C<nzigovt> command-line utility.
+RealMe login service and is also responsible for dispatching the various
+command implemented by the C<nzrealme> command-line utility.
 
 =head2 service_provider( conf_dir => $path_to_config_directory )
 
@@ -578,9 +575,9 @@ testing.
 
 =head2 run_command( command, args )
 
-This method is called by the C<nzigovt> command-line tool, to delegate tasks to
+This method is called by the C<nzrealme> command-line tool, to delegate tasks to
 the appropriate classes.  For more information about available commands, see
-C<< nzigovt --help >>
+C<< nzrealme --help >>
 
 =cut
 
@@ -643,7 +640,7 @@ digital signature (using the IdP public key from the metadata file).
 There is no implementation of SingleLogOut functionality.
 
 Please report any bugs or feature requests to
-C<bug-authen-nzigovt at rt.cpan.org>, or through the web interface at
+C<bug-authen-nzrealme at rt.cpan.org>, or through the web interface at
 L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Authen-NZRealMe>.  I will be
 notified, and then you'll automatically be notified of progress on your bug as
 I make changes.

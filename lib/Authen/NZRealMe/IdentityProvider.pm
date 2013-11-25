@@ -154,13 +154,13 @@ __END__
 
 =head1 NAME
 
-Authen::NZRealMe::IdentityProvider - Class representing the NZ igovt Identity Provider
+Authen::NZRealMe::IdentityProvider - Class representing the NZ RealMe Login SAML IdP
 
 =head1 DESCRIPTION
 
-This class is used to represent the NZ igovt logon service Identity Provider.
-An object of this class is initialised from the F<metadata-idp.xml> in the
-configuration directory.
+This class is used to represent the SAML IdP (Identity Provider) which
+implements the RealMe Login service.  An object of this class is initialised
+from the F<metadata-login-idp.xml> in the configuration directory.
 
 =head1 METHODS
 

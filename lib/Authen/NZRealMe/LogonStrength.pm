@@ -82,11 +82,11 @@ __END__
 
 =head1 NAME
 
-Authen::NZRealMe::LogonStrength - Manipulate NZ igovt logon service AuthnContextClassRef values
+Authen::NZRealMe::LogonStrength - Manipulate NZ RealMe Login service AuthnContextClassRef values
 
 =head1 DESCRIPTION
 
-The NZ igovt logon service supports the notion of logon strength.  For example
+The NZ RealMe Login service supports the notion of logon strength.  For example
 a user session authenticated with a username and password is a 'low strength'
 logon.  Whereas authenticating with a user, password and SecurID token will
 result in a moderate strength logon.  The different logon strengths are
@@ -117,7 +117,7 @@ The following constants are defined for referring to URNs:
 =head2 new( strength )
 
 Creates an object from the named strength identifier which might be a word
-(e.g.: 'low'), a URN (see the igovt logon service SAML v2.0 Messaging
+(e.g.: 'low'), a URN (see the RealMe Login service SAML v2.0 Messaging
 Specification), or a URN fragment matching the last portion of a URN (e.g.:
 'OTP:Token:SID').
 
@@ -139,7 +139,7 @@ The C<required_strength> will default to 'low' if not provided.
 
 The C<strength_match> parameter must be 'exact' or 'minimum' (default
 'minimum').  When comparing different logon strengths, the rules outlined in
-the igovt logon service SAML v2.0 Messaging Specification are used.
+the RealMe Login service SAML v2.0 Messaging Specification are used.
 
 
 =head1 SEE ALSO

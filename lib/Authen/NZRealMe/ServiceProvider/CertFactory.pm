@@ -6,7 +6,7 @@ use feature "switch";
 
 use Term::ReadLine;
 
-my $prog_name = 'nzigovt';
+my $prog_name = 'nzrealme';
 my $term      = undef;
 
 
@@ -38,7 +38,7 @@ EOF
 
 Enter the domain name for your agency.  You might choose to include an
 application prefix (e.g.: facetube.innovation.govt.nz) if your applications
-will have separate igovt integrations but just the domain name is usually
+will have separate RealMe integrations but just the domain name is usually
 sufficient (e.g.: innovation.govt.nz).
 EOF
 
@@ -296,7 +296,7 @@ production, CSRs will be generated for signing by a certification authority
 
 =head2 generate_certs
 
-Called by the C<< nzigovt make-certs >> command to run an interactive Q&A
+Called by the C<< nzrealme make-certs >> command to run an interactive Q&A
 session to generate either self-signed certificates or Certificate Signing
 Requests (CSRs).
 
