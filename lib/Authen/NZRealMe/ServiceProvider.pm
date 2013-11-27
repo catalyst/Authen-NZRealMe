@@ -410,8 +410,8 @@ sub _verify_assertion {
     # Check for SOAP error
 
     if(my($error) = $xc->findnodes('//SOAP-ENV:Fault')) {
-        my $code   = $xc->findvalue('./SOAP-ENV:faultcode',   $error) || 'Unknown';
-        my $string = $xc->findvalue('./SOAP-ENV:faultstring', $error) || 'Unknown';
+        my $code   = $xc->findvalue('./faultcode',   $error) || 'Unknown';
+        my $string = $xc->findvalue('./faultstring', $error) || 'Unknown';
         die "SOAP protocol error:\n  Fault Code: $code\n  Fault String: $string\n";
     }
 
