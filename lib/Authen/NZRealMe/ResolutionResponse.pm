@@ -85,6 +85,18 @@ sub set_address_suburb          { $_[0]->{address_suburb}         = $_[1]; }
 sub set_address_town_city       { $_[0]->{address_town_city}      = $_[1]; }
 sub set_address_postcode        { $_[0]->{address_postcode}       = $_[1]; }
 
+sub address {
+    my $self = shift;
+
+    my %out;
+    foreach my $key (qw(unit street suburb rural_delivery town_city postcode)) {
+        if(my $value = $self->{"address_$key"}) {
+            $out{$key} = $value;
+        }
+    }
+    return keys(%out) ? \%out : undef;
+}
+
 
 sub as_string {
     my $self = shift;
@@ -274,6 +286,13 @@ Returns the user's midnames (if they have any).
 =head2 gender
 
 Returns the user's gender as "M" (Male), "F" (Female) or "U" (Unknown).
+
+=head2 address
+
+Returns all available details of the verified address (if one was available)
+as a hashref with keys: "unit", "street", "suburb", "town_city" and "postcode".
+
+If no address details are available, returns C<undef>.
 
 =head2 address_unit
 
