@@ -3,13 +3,7 @@ It was created by Grant McLean <grant@catalyst.net.nz> using dh-make-perl.
 
 It was downloaded from http://search.cpan.org/dist/Authen-NZRealMe/
 
-This copyright info was automatically extracted from the perl module.
-It may not be accurate, so you better check the module sources
-if you don't want to get into legal troubles.
-
-
-
-Copyright 2010 Grant McLean <grant@catalyst.net.nz>
+Copyright (c) 2010-2013 Enrolment Services, New Zealand Electoral Commission
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
@@ -20,5 +14,6 @@ GNU General Public License can be found in `/usr/share/common-licenses/GPL'
 and the Artistic Licence in `/usr/share/common-licenses/Artistic'.
 
 
-The Debian packaging is (C) 2011, Grant McLean <grant@catalyst.net.nz> and
-is licensed under the same terms as the software itself (see above).
+The Debian packaging is also copyright (c) 2010-2013 Enrolment Services, New
+Zealand Electoral Commission and is licensed under the same terms as the
+software itself (see above).

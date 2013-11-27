@@ -747,7 +747,7 @@ L<http://www.catalyst.net.nz>.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2010-2011 the New Zealand Electoral Enrolment Centre
+Copyright (c) 2010-2013 Enrolment Services, New Zealand Electoral Commission
 
 Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
 
