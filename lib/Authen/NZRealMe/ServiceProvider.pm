@@ -44,8 +44,25 @@ my $ns_ds       = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
 my $ns_saml     = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
 my $ns_samlp    = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
 my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
+my $ns_xpil     = [ xpil => "urn:oasis:names:tc:ciq:xpil:3" ];
+my $ns_xal      = [ xal => "urn:oasis:names:tc:ciq:xal:3"   ];
+my $ns_xnl      = [ xnl   => "urn:oasis:names:tc:ciq:xnl:3" ];
+my $ns_ct       = [ ct    => "urn:oasis:names:tc:ciq:ct:3"  ];
 
-my $urn_nameid_format = 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent';
+my @ivs_namespaces = ( $ns_xpil, $ns_xnl, $ns_ct, $ns_xal );
+my @avs_namespaces = ( $ns_xpil, $ns_xal );
+
+my %urn_nameid_format = (
+    login     => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
+    assertion => 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
+);
+
+my %urn_attr_name = (
+    fit         => 'urn:nzl:govt:ict:stds:authn:attribute:igovt:IVS:FIT',
+    ivs         => 'urn:nzl:govt:ict:stds:authn:safeb64:attribute:igovt:IVS:Assertion:Identity',
+    avs         => 'urn:nzl:govt:ict:stds:authn:safeb64:attribute:NZPost:AVS:Assertion:Address',
+    icms_token  => 'urn:nzl:govt:ict:stds:authn:safeb64:attribute:opaque_token',
+);
 
 my $soap_action = 'http://www.oasis-open.org/committees/security';
 
@@ -61,6 +78,8 @@ sub new {
 
     my $conf_dir = $self->{conf_dir} or die "conf_dir not set\n";
     $self->{conf_dir} = File::Spec->rel2abs($conf_dir);
+
+    $self->_check_type();
 
     $self->_load_metadata();
 
@@ -91,7 +110,7 @@ sub contact_first_name     { shift->{contact_first_name};     }
 sub contact_surname        { shift->{contact_surname};        }
 sub skip_signature_check   { shift->{skip_signature_check};   }
 sub _x                     { shift->{x};                      }
-sub nameid_format          { return $urn_nameid_format;       }
+sub nameid_format          { return $urn_nameid_format{ shift->type };         }
 sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
 sub signing_key_pathname   { shift->{conf_dir} . '/' . $signing_key_filename;  }
 sub ssl_cert_pathname      { shift->{conf_dir} . '/' . $ssl_cert_filename;     }
@@ -103,7 +122,8 @@ sub idp {
     return $self->{idp} if $self->{idp};
 
     $self->{idp} = Authen::NZRealMe->class_for('identity_provider')->new(
-        conf_dir => $self->conf_dir()
+        conf_dir  => $self->conf_dir(),
+        type      => $self->type,
     );
 }
 
@@ -160,6 +180,18 @@ sub make_bundle {
 }
 
 
+sub _check_type {
+    my $self = shift;
+
+    my $type = $self->type;
+    if($type ne 'login' and $type ne 'assertion') {
+        warn qq{Unknown service type.\n} .
+             qq{  Got: "$type"\n} .
+             qq{  Expected: "login" or "assertion"\n};
+    }
+}
+
+
 sub _load_metadata {
     my $self = shift;
 
@@ -176,9 +208,7 @@ sub _read_metadata_from_file {
     my $metadata_file = $self->_metadata_pathname;
     die "File does not exist: $metadata_file\n" unless -e $metadata_file;
 
-    my $parser = XML::LibXML->new();
-    my $doc    = $parser->parse_file( $metadata_file );
-    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
+    my $xc = $self->_xpath_context_dom($metadata_file, $ns_md);
 
     $xc->registerNs( @$ns_md );
 
@@ -209,6 +239,23 @@ sub _metadata_pathname {
     $conf_dir ||= $self->conf_dir or die "conf_dir not set";
 
     return $conf_dir . '/metadata-' . $self->type . '-sp.xml';
+}
+
+
+sub _xpath_context_dom {
+    my($self, $source, @namespaces) = @_;
+
+    my $parser = XML::LibXML->new();
+    my $doc    = $source =~ /<.*>/
+                 ? $parser->parse_string( $source )
+                 : $parser->parse_file( $source );
+    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
+
+    foreach my $ns ( @namespaces ) {
+        $xc->registerNs( @$ns );
+    }
+
+    return $xc;
 }
 
 
@@ -358,14 +405,7 @@ sub _https_post {
 sub _verify_assertion {
     my($self, $xml, %args) = @_;
 
-    my $parser = XML::LibXML->new();
-    my $doc    = $parser->parse_string( $xml );
-    my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
-
-    $xc->registerNs( @$ns_soap_env );
-    $xc->registerNs( @$ns_saml );
-    $xc->registerNs( @$ns_samlp );
-
+    my $xc = $self->_xpath_context_dom($xml, $ns_soap_env, $ns_saml, $ns_samlp);
 
     # Check for SOAP error
 
@@ -410,11 +450,12 @@ sub _verify_assertion {
 
     # Check that it's intended for our SP
 
-    my $sp_entity_id  = $self->entity_id;
-    my $for_sp = $xc->findvalue('./saml:NameID/@SPNameQualifier', $subject) || '';
-    die "SAML assertion created for '$for_sp', expected '$sp_entity_id'\n$xml\n"
-        if $for_sp ne $sp_entity_id;
-
+    if($self->type eq 'login') {  # Not provided by assertion IdP
+        my $sp_entity_id  = $self->entity_id;
+        my $for_sp = $xc->findvalue('./saml:NameID/@SPNameQualifier', $subject) || '';
+        die "SAML assertion created for '$for_sp', expected '$sp_entity_id'\n$xml\n"
+            if $for_sp ne $sp_entity_id;
+    }
 
     # Look for Conditions on the assertion
 
@@ -431,24 +472,25 @@ sub _verify_assertion {
 
     # Check the logon strength (if required)
 
-    my $strength = $xc->findvalue(
-        q{//samlp:Response/saml:Assertion/saml:AuthnStatement/saml:AuthnContext/saml:AuthnContextClassRef}
-    ) || '';
-    $response->set_logon_strength($strength);
-    if($args{logon_strength}) {
-        $strength = Authen::NZRealMe->class_for('logon_strength')->new($strength);
-        $strength->assert_match($args{logon_strength}, $args{strength_match});
+    if($self->type eq 'login') {  # Not needed for assertion IdP
+        my $strength = $xc->findvalue(
+            q{//samlp:Response/saml:Assertion/saml:AuthnStatement/saml:AuthnContext/saml:AuthnContextClassRef}
+        ) || '';
+        $response->set_logon_strength($strength);
+        if($args{logon_strength}) {
+            $strength = Authen::NZRealMe->class_for('logon_strength')->new($strength);
+            $strength->assert_match($args{logon_strength}, $args{strength_match});
+        }
     }
 
-    # Extract the FLT
+    # Extract the payload
 
-    my $flt = $xc->findvalue(
-        q{//samlp:Response/saml:Assertion/saml:Subject/saml:NameID}
-    ) or die "Can't find NameID element in response:\n$xml\n";
-
-    $flt =~ s{\s+}{}g;
-
-    $response->set_flt($flt);
+    if($self->type eq 'login') {
+        $self->_extract_login_payload($response, $xc);
+    }
+    elsif($self->type eq 'assertion') {
+        $self->_extract_assertion_payload($response, $xc);
+    }
 
     return $response;
 }
@@ -479,6 +521,7 @@ sub _build_resolution_response {
     my($self, $xc, $xml) = @_;
 
     my $response = Authen::NZRealMe->class_for('resolution_response')->new($xml);
+    $response->set_service_type( $self->type );
 
     my($status_code) = $xc->findnodes(
         '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusCode'
@@ -597,6 +640,170 @@ sub _compare_times {
     }
 
     return $date1 cmp $date2;
+}
+
+
+sub _extract_login_payload {
+    my($self, $response, $xc) = @_;
+
+    # Extract the FLT
+
+    my $flt = $xc->findvalue(
+        q{//samlp:Response/saml:Assertion/saml:Subject/saml:NameID}
+    ) or die "Can't find NameID element in response:\n" . $response->xml . "\n";
+
+    $flt =~ s{\s+}{}g;
+
+    $response->set_flt($flt);
+}
+
+
+sub _extract_assertion_payload {
+    my($self, $response, $xc) = @_;
+
+    # Extract the asserted attributes
+
+    my $attribute_selector =
+        q{//samlp:Response/saml:Assertion/saml:AttributeStatement/saml:Attribute};
+
+    foreach my $attr ( $xc->findnodes($attribute_selector) ) {
+        my $name  = $xc->findvalue('./@Name', $attr) or next;
+        my $value = $xc->findvalue('./saml:AttributeValue', $attr) || '';
+        if($name =~ /:safeb64:/) {
+            $value = MIME::Base64::decode_base64url($value);
+        }
+        if($name eq $urn_attr_name{fit}) {
+            $response->set_fit($value);
+        }
+        elsif($name eq $urn_attr_name{ivs}) {
+            $self->_extract_ivs_details($response, $value);
+        }
+        elsif($name eq $urn_attr_name{avs}) {
+            $self->_extract_avs_details($response, $value);
+        }
+        elsif($name eq $urn_attr_name{icms_token}) {
+            $self->_extract_icms_token($response, $value);
+        }
+    }
+
+    #$response->set_flt($flt);
+}
+
+
+sub _extract_ivs_details {
+    my($self, $response, $xml) = @_;
+
+    my $xc = $self->_xpath_context_dom($xml, @ivs_namespaces);
+
+    my($dd, $mm, $yyyy);
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:BirthInfo/xpil:BirthInfoElement[@xpil:Type='BirthDay']},
+        sub { $dd = shift; }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:BirthInfo/xpil:BirthInfoElement[@xpil:Type='BirthMonth']},
+        sub { $mm = shift; }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:BirthInfo/xpil:BirthInfoElement[@xpil:Type='BirthYear']},
+        sub { $yyyy = shift; }
+    );
+
+    if($dd && $mm && $yyyy) {
+        $response->set_date_of_birth("$yyyy-$mm-$dd");
+    }
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:BirthInfo/xpil:BirthPlaceDetails/xal:Locality/xal:NameElement},
+        sub { $response->set_place_of_birth(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:BirthInfo/xpil:BirthPlaceDetails/xal:Country/xal:NameElement},
+        sub { $response->set_country_of_birth(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:PartyName/xnl:PersonName/xnl:NameElement[@xnl:ElementType='LastName']},
+        sub { $response->set_surname(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:PartyName/xnl:PersonName/xnl:NameElement[@xnl:ElementType='FirstName']},
+        sub { $response->set_first_name(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:PartyName/xnl:PersonName/xnl:NameElement[@xnl:ElementType='MiddleName']},
+        sub { $response->set_mid_names(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xpil:PersonInfo/@xpil:Gender},
+        sub { $response->set_gender(shift); }
+    );
+
+}
+
+
+sub _extract_avs_details {
+    my($self, $response, $xml) = @_;
+
+    my $xc = $self->_xpath_context_dom($xml, @avs_namespaces);
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:Premises/xal:NameElement[@NameType="NZUnit"]},
+        sub { $response->set_address_unit(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:Thoroughfare/xal:NameElement[@NameType="NZNumberStreet"]},
+        sub { $response->set_address_street(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:Locality/xal:NameElement[@NameType="NZSuburb"]},
+        sub { $response->set_address_suburb(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:Locality/xal:NameElement[@NameType="NZTownCity"]},
+        sub { $response->set_address_town_city(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:PostCode/xal:Identifier[@Type="NZPostCode"]},
+        sub { $response->set_address_postcode(shift); }
+    );
+
+    $self->_xc_extract($xc,
+        q{/xpil:Party/xal:Addresses/xal:Address[1]/xal:RuralDelivery/xal:Identifier[@Type="NZRuralDelivery"]},
+        sub { $response->set_address_rural_delivery(shift); }
+    );
+
+}
+
+
+sub _extract_icms_token {
+    my($self, $response, $xml) = @_;
+
+    # Not yet implemented
+}
+
+
+sub _xc_extract {
+    my($self, $xc, $selector, $handler) = @_;
+
+    my @match = $xc->findnodes($selector);
+    if(@match > 1) {
+        die "Error: found multiple matches (" . @match . ") for selector:\n  '$selector'";
+    }
+    elsif(@match == 1) {
+        $handler->( $match[0]->to_literal, $match[0] );
+    }
 }
 
 

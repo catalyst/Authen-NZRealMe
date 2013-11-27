@@ -31,6 +31,7 @@ sub new {
 sub _init {
     my($self, $sp) = @_;
 
+    $self->{service_type}    = $sp->type;
     $self->{request_id}      = $sp->generate_saml_id('AuthnRequest');
     $self->{entity_id}       = $sp->entity_id;
     $self->{destination_url} = $sp->idp->single_signon_location;
@@ -47,6 +48,7 @@ sub _init {
 }
 
 
+sub service_type    { shift->{service_type};        }
 sub request_id      { shift->{request_id};          }
 sub entity_id       { shift->{entity_id};           }
 sub request_time    { shift->{request_time};        }
@@ -104,12 +106,16 @@ sub _generate_authn_request_doc {
             ID                            => $self->request_id(),
             IssueInstant                  => $self->request_time(),
             Destination                   => $self->destination_url(),
-            ForceAuthn                    => $self->force_auth(),
+            $self->service_type eq 'login'
+                ? (ForceAuthn             => $self->force_auth() )
+                : (),
             AssertionConsumerServiceIndex => '0',
         },
         $self->_issuer(),
         $self->_nameid_policy(),
-        $self->_authen_context(),
+        $self->service_type eq 'login'
+            ? $self->_authen_context()
+            : (),
     ) . '';  # ensure result is stringified
 }
 
@@ -126,12 +132,32 @@ sub _issuer {
 
 sub _nameid_policy {
     my $self = shift;
+
+    return $self->_login_nameid_policy()     if $self->service_type eq 'login';
+    return $self->_assertion_nameid_policy() if $self->service_type eq 'assertion';
+}
+
+
+sub _login_nameid_policy {
+    my $self = shift;
     my $x    = $self->_x;
 
     return $x->NameIDPolicy($ns_samlp,
         {
             Format      => $self->_nameid_format(),
             AllowCreate => $self->allow_create(),
+        },
+    );
+}
+
+
+sub _assertion_nameid_policy {
+    my $self = shift;
+    my $x    = $self->_x;
+
+    return $x->NameIDPolicy($ns_samlp,
+        {
+            Format      => $self->_nameid_format(),
         },
     );
 }

@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 ##############################################################################
 #
-# Tools for interacting with the New Zealand 'RealMe Login Service'
+# Tools for interacting with the New Zealand RealMe Login service
 # (see: https://www.realme.govt.nz/ ).
 #
 # These tools ARE NOT produced by, nor endorsed by New Zealand Post or the
 # Department of Internal Affairs who jointly operate the RealMe Login service.
-# They are merely an implemention # of the published protocols.
+# They are merely an implemention of the published protocols.
 #
 # For more information, see:
 #
@@ -27,6 +27,7 @@ if(!GetOptions(\%opt,
     'help|?',
     'version',
     'conf_dir|conf-dir|c=s',
+    'type|t=s',
     'allow_create|allow-create',
     'env=s',
     'org=s',
@@ -76,6 +77,7 @@ nzrealme - Tools for interacting with the New Zealand 'RealMe Login' service
 
    --conf-dir <path>  pathname of directory containing metadata & cert files
    --allow-create     can be used with 'make-req' to allow account creation
+   --type <name>      service type: "login" (default) or "assertion"
    --env <name>       target environment (must be: 'mts', 'ite' or 'prod')
    --org <name>       organisation/agency name, e.g.: "Department of Innovation"
    --org-unit <name>  organisational unit, e.g.: "Innovation Labs"
@@ -118,12 +120,14 @@ the Identity Provider.
 
 =item make-req
 
-Generate a URL containing a SAML AuthnRequest - for initiating a logon.
+Generate a URL containing a SAML AuthnRequest.  The C<--type> option should be
+used to generate either a "login" request (the default) or an "assertion"
+request.
 
-Note: By default, the AuthnRequest will have the AllowCreate flag set to false
-(i.e.: the user must already have an RealMe Login associated with this SP).  Use
-C<--allow-create> if you want the request to allow a new account and FLT to be
-created.
+Note: By default, an AuthnRequest to the "login" service will have the
+AllowCreate flag set to false (i.e.: the user must already have a RealMe Login
+associated with this SP).  Use C<--allow-create> if you want the request to
+allow a new account and FLT to be created.
 
 =item dump-req <request URL>
 
@@ -169,6 +173,11 @@ Display this documentation.
 Specify the path to the directory containing the metadata files and
 certificate/key-pair files for signing requests and encrypting SSL traffic.
 See C<< perldoc Authen::NZRealMe >> for more information about config files.
+
+=item B<< --type <name> >>
+
+Use this option to direct the request to either the "login" service (the
+default) or the "assertion" service to retrieve identity attributes.
 
 =item B<< --env <name> >>
 

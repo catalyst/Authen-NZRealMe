@@ -71,6 +71,18 @@ sub service_provider {
 }
 
 
+sub _sp_from_opt {
+    my $class      = shift;
+    my $opt        = shift;
+
+    my $service_type = $opt->{type} || "login";
+    return $class->service_provider(
+        conf_dir  => _conf_dir($opt),
+        type      => $service_type,
+    );
+}
+
+
 sub class_for {
     my($class, $key) = @_;
     my $module = $class_map{$key} or die "No class defined for '$key'";
@@ -136,11 +148,14 @@ sub _dispatch_make_bundle {
 sub _dispatch_make_req {
     my($class, $opt) = @_;
 
-    my $allow_create = $opt->{allow_create} ? 1 : 0;
-    my $sp  = $class->service_provider( conf_dir => _conf_dir($opt) );
-    my $req = $sp->new_request(
-        allow_create => $allow_create,
-    );
+    my $sp  = $class->_sp_from_opt($opt);
+    my @req_options;
+    if($sp->type eq 'login') {
+        my $allow_create = $opt->{allow_create} ? 1 : 0;
+        push @req_options, allow_create => $allow_create;
+    }
+    my $req = $sp->new_request( @req_options );
+
     print "Request ID: ", $req->request_id, "\n" if -t 1;
     print $req->as_url, "\n";
 }
@@ -160,15 +175,15 @@ sub _dispatch_resolve {
     my $artifact   = shift or die "Must provide artifact or URL\n";
     my $request_id = shift or die "Must provide ID from original request\n";
 
-    my $sp   = $class->service_provider( conf_dir => _conf_dir($opt) );
+    my $sp   = $class->_sp_from_opt($opt);
     my %args = (
         artifact   => $artifact,
         request_id => $request_id,
     );
     $args{logon_strength} = shift if @_;
     $args{strength_match} = shift if @_;
-    my $result = eval {
-        my $resp = $sp->resolve_artifact(%args);
+    my $response = eval {
+        $sp->resolve_artifact(%args);
     };
     if($@) {
         print "Failed to resolve artifact:\n$@";

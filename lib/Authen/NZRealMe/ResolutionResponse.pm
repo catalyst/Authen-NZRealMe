@@ -19,6 +19,7 @@ sub new {
 
 
 sub xml               { return shift->{xml};                      }
+sub service_type      { return shift->{service_type};             }
 sub status_urn        { return shift->{status_urn};               }
 sub status_message    { return shift->{status_message} || '';     }
 sub is_success        { return shift->status_urn eq $urn_success; }
@@ -27,7 +28,20 @@ sub is_timeout        { return shift->status_urn eq $urn_timeout; }
 sub is_cancel         { return shift->status_urn eq $urn_cancel;  }
 sub is_not_registered { return shift->status_urn eq $urn_not_reg; }
 sub flt               { return shift->{flt};                      }
+sub fit               { return shift->{fit};                      }
 sub logon_strength    { return shift->{logon_strength};           }
+sub date_of_birth     { return shift->{date_of_birth};            }
+sub place_of_birth    { return shift->{place_of_birth};           }
+sub country_of_birth  { return shift->{country_of_birth};         }
+sub surname           { return shift->{surname};                  }
+sub first_name        { return shift->{first_name};               }
+sub mid_names         { return shift->{mid_names};                }
+sub gender            { return shift->{gender};                   }
+sub address_unit      { return shift->{address_unit};             }
+sub address_street    { return shift->{address_street};           }
+sub address_suburb    { return shift->{address_suburb};           }
+sub address_town_city { return shift->{address_town_city};        }
+sub address_postcode  { return shift->{address_postcode};         }
 
 sub set_status_urn {
     my $self = shift;
@@ -49,6 +63,28 @@ sub set_flt {
     my $self = shift;
     $self->{flt} = shift or die "No value provided to set_flt";
 }
+
+sub set_date_of_birth {
+    my($self, $dob) = @_;
+
+    die "Invalid Date of Birth: '$dob'" unless $dob =~ /\A\d\d\d\d-\d\d-\d\d\z/;
+    $self->{date_of_birth} = $dob;
+}
+
+sub set_service_type            { $_[0]->{service_type}           = $_[1]; }
+sub set_fit                     { $_[0]->{fit}                    = $_[1]; }
+sub set_place_of_birth          { $_[0]->{place_of_birth}         = $_[1]; }
+sub set_country_of_birth        { $_[0]->{country_of_birth}       = $_[1]; }
+sub set_surname                 { $_[0]->{surname}                = $_[1]; }
+sub set_first_name              { $_[0]->{first_name}             = $_[1]; }
+sub set_mid_names               { $_[0]->{mid_names}              = $_[1]; }
+sub set_gender                  { $_[0]->{gender}                 = $_[1]; }
+sub set_address_unit            { $_[0]->{address_unit}           = $_[1]; }
+sub set_address_street          { $_[0]->{address_street}         = $_[1]; }
+sub set_address_suburb          { $_[0]->{address_suburb}         = $_[1]; }
+sub set_address_town_city       { $_[0]->{address_town_city}      = $_[1]; }
+sub set_address_postcode        { $_[0]->{address_postcode}       = $_[1]; }
+
 
 1;
 
