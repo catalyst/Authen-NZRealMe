@@ -107,11 +107,14 @@ sub as_string {
 
     if($self->service_type eq "login") {
         push @out, "Login Service Response";
+        push @out, "    status_urn: " . $self->status_urn;
         push @out, "    flt: " . $self->flt;
+        push @out, "    logon_strength: " . $self->logon_strength;
     }
 
     if($self->service_type eq "assertion") {
         push @out, "Assertion Service Response";
+        push @out, "    status_urn: " . $self->status_urn;
         push @out, "    fit: " . $self->fit;
         if($self->{flt}) {
             push @out, "    flt: " . $self->flt;
