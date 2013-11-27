@@ -189,9 +189,7 @@ sub _dispatch_resolve {
         print "Failed to resolve artifact:\n$@";
         exit 1;
     }
-    foreach my $key (sort keys %$result) {
-        print "$key: $result->{$key}\n";
-    }
+    print $response->as_string();
 }
 
 

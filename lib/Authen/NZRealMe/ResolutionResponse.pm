@@ -86,6 +86,50 @@ sub set_address_town_city       { $_[0]->{address_town_city}      = $_[1]; }
 sub set_address_postcode        { $_[0]->{address_postcode}       = $_[1]; }
 
 
+sub as_string {
+    my $self = shift;
+
+    my @out;
+
+    if($self->service_type eq "login") {
+        push @out, "Login Service Response";
+        push @out, "    flt: " . $self->flt;
+    }
+
+    if($self->service_type eq "assertion") {
+        push @out, "Assertion Service Response";
+        push @out, "    fit: " . $self->fit;
+        if($self->{flt}) {
+            push @out, "    flt: " . $self->flt;
+        }
+    }
+
+    my @i_attr = grep { $self->{$_} } qw(
+        surname first_name mid_names gender date_of_birth
+        place_of_birth country_of_birth
+    );
+    if(@i_attr) {
+        push @out, "Asserted Identity Atttributes";
+        foreach my $key (@i_attr) {
+            push @out, "    $key: " . $self->{$key};
+        }
+    }
+
+    my @a_attr = grep { $self->{$_} } qw(
+        address_unit address_street address_suburb address_town_city
+        address_postcode
+    );
+    if(@a_attr) {
+        push @out, "Asserted Address Atttributes";
+        foreach my $key (@a_attr) {
+            push @out, "    $key: " . $self->{$key};
+        }
+    }
+
+    return join("\n", @out) . "\n";
+}
+
+
 1;
 
 __END__
