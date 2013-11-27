@@ -42,6 +42,7 @@ sub address_street    { return shift->{address_street};           }
 sub address_suburb    { return shift->{address_suburb};           }
 sub address_town_city { return shift->{address_town_city};        }
 sub address_postcode  { return shift->{address_postcode};         }
+sub address_rural_delivery { return shift->{address_postcode};    }
 
 sub set_status_urn {
     my $self = shift;
@@ -84,6 +85,7 @@ sub set_address_street          { $_[0]->{address_street}         = $_[1]; }
 sub set_address_suburb          { $_[0]->{address_suburb}         = $_[1]; }
 sub set_address_town_city       { $_[0]->{address_town_city}      = $_[1]; }
 sub set_address_postcode        { $_[0]->{address_postcode}       = $_[1]; }
+sub set_address_rural_delivery  { $_[0]->{address_rural_delivery} = $_[1]; }
 
 sub address {
     my $self = shift;
@@ -128,8 +130,8 @@ sub as_string {
     }
 
     my @a_attr = grep { $self->{$_} } qw(
-        address_unit address_street address_suburb address_town_city
-        address_postcode
+        address_unit address_street address_rural_delivery address_suburb
+        address_town_city address_postcode
     );
     if(@a_attr) {
         push @out, "Asserted Address Atttributes";
@@ -304,6 +306,11 @@ one.
 Returns the house number and street name (e.g.: "25 Example Street") from the
 user's address.
 
+=head2 address_rural_delivery
+
+Returns the rural delivery identifier (e.g.: "RD 7") from the user's address
+(if it has one).
+
 =head2 address_suburb
 
 Returns the suburb name (e.g.: "Herne Bay") from the user's address if it has
@@ -354,6 +361,8 @@ response object and are not intended for use by the calling application.
 =item set_address_unit
 
 =item set_address_street
+
+=item set_address_rural_delivery
 
 =item set_address_suburb
 
