@@ -219,20 +219,84 @@ a false value for the C<allow_create> option.  Agency sites which use a
 separate flow for the initial sign-up process will need to handle this error.
 
 
+=head1 RESPONSE ATTRIBUTE METHODS
+
+The following methods are available for querying attributes returned in the
+response (after the artifact resolution has been completed successfully).
+
+Note most of the attributes will only be available if they were requested
+during your application's integration with the assertion service B<and> if the
+user consented to those details being shared with your application.
+
 =head2 flt
 
-If the artifact resolution was successful, use this method to retrieve the
-user's FLT - a token uniquely identifying the user.
-
+Returns the user's FLT (Federated Login Tag) - a token uniquely identifying the
+relationship between the user, the login service and your application.
 
 =head2 logon_strength
 
-The URN indicating the logon strength returned by the IdP.
+The URN indicating the logon strength returned by the Login Service IdP (not
+available in responses from the assertion service).
 
-Note: If you have
-specific logon strength requirements, you should specify them using the
-C<logon_strength> and C<strength_match> options when calling the service
-provider's C<resolve_artifact> method.
+Note: If you have specific logon strength requirements, you should specify them
+using the C<logon_strength> and C<strength_match> options when calling the
+service provider's C<resolve_artifact> method.
+
+=head2 fit
+
+Returns the user's FIT (Federated Identity Tag) - a token uniquely identifying
+the relationship between the user, the assertion service and your application.
+
+=head2 date_of_birth
+
+Returns the user's date of birth as an ISO date string.
+
+=head2 place_of_birth
+
+Returns the user's place of birth as a string containing a town name.
+
+=head2 country_of_birth
+
+Returns the user's country of birth as a string containing a country name.
+
+=head2 surname
+
+Returns the user's surname.
+
+=head2 first_name
+
+Returns the user's first name (if they have one).
+
+=head2 mid_names
+
+Returns the user's midnames (if they have any).
+
+=head2 gender
+
+Returns the user's gender as "M" (Male), "F" (Female) or "U" (Unknown).
+
+=head2 address_unit
+
+Returns the unit identifier (e.g.: "Flat 1") from the user's address if it has
+one.
+
+=head2 address_street
+
+Returns the house number and street name (e.g.: "25 Example Street") from the
+user's address.
+
+=head2 address_suburb
+
+Returns the suburb name (e.g.: "Herne Bay") from the user's address if it has
+one.
+
+=head2 address_town_city
+
+Returns the town or city name (e.g.: "Auckland") from the user's address.
+
+=head2 address_postcode
+
+Returns the postcode (e.g.: "1001") from the user's address.
 
 
 =head1 PRIVATE METHODS
@@ -242,6 +306,8 @@ response object and are not intended for use by the calling application.
 
 =over 4
 
+=item set_service_type
+
 =item set_status_urn
 
 =item set_status_message
@@ -249,6 +315,32 @@ response object and are not intended for use by the calling application.
 =item set_logon_strength
 
 =item set_flt
+
+=item set_fit
+
+=item set_surname
+
+=item set_first_name
+
+=item set_mid_names
+
+=item set_gender
+
+=item set_date_of_birth
+
+=item set_place_of_birth
+
+=item set_country_of_birth
+
+=item set_address_unit
+
+=item set_address_street
+
+=item set_address_suburb
+
+=item set_address_town_city
+
+=item set_address_postcode
 
 =back
 
