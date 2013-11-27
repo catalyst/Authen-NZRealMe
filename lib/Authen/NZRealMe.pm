@@ -6,12 +6,17 @@ use strict;
 
 =head1 NAME
 
-Authen::NZRealMe - Tools for integrating with the New Zealand RealMe login service (formerly "igovt logon")
+Authen::NZRealMe - Integrate with RealMe login and identity services (formerly "igovt logon")
 
 =head1 DESCRIPTION
 
-This module provides an API for integrating your application with the New
-Zealand RealMe login service using SAML 2.0 messaging.
+Provides an API for integrating your application with the New Zealand RealMe
+login service and the RealMe assertion service (for verified identity and
+address details) using SAML 2.0 messaging.
+
+NOTE: PRE-RELEASE STATUS - This distribution was renamed from Authen::NZigovt
+following the rebranding of the service to "RealMe".  The login functionality is
+stable but support for the assertion service is still under development.
 
 The distribution also includes a command-line tool called C<nzrealme> which can
 be used for:
@@ -219,8 +224,8 @@ __END__
 You cannot simply drop some config files in a directory and start
 authenticating users.  Your agency will need to establish a Service Provider
 role with the logon service and complete the required integration steps.  Your
-first step should be to make contact with the RealMe login service and arrange
-a meeting.
+first step should be to make contact with the DIA/RealMe team and arrange a
+meeting.
 
 
 =head1 CODE INTEGRATION
@@ -281,7 +286,14 @@ understand the SAML protocol interaction that is followed for each user logon:
  '-------------------------'
   API call returns
 
-The RealMe login server is a SAML Identity Provider or 'IdP'.
+The RealMe login server is a SAML Identity Provider or 'IdP'.  However the only
+attribute the login service provides is the 'Federated Logon Tag' - a unique
+identifier associating the user's login account with the agency web site.
+
+The RealMe assertion server is also a SAML IdP and can be accessed using the
+same process described above.  The response returned from the assertion server
+will include details of the user's verified identity and/or address (the user
+must first consent to sharing the requested details).
 
 The agency web site is a SAML Service Provider or 'SP'.  The Authen::NZRealMe
 module implements the SAML SP role on behalf of the agency web app.
@@ -310,7 +322,10 @@ framework you are using:
 
   use Authen::NZRealMe;
 
-  my $sp  = Authen::NZRealMe->service_provider( conf_dir => $path_to_config_directory );
+  my $sp  = Authen::NZRealMe->service_provider(
+      type      => 'login',
+      conf_dir  => $path_to_config_directory
+  );
   my $req = $sp->new_request(
       allow_create => 0,         # set to 1 for initial registration
       # other options here
@@ -322,6 +337,14 @@ framework you are using:
 
 Your code does not need to explicitly reference the RealMe login service domain
 or URL - these details are handled automatically by the configuration.
+
+If you wish to use the assertion service rather than the login service, simply
+change the C<type> parameter when creating the service_provider object:
+
+  my $sp  = Authen::NZRealMe->service_provider(
+      type      => 'assertion',
+      conf_dir  => $path_to_config_directory
+  );
 
 =head2 Artifact Resolution
 
@@ -354,14 +377,19 @@ validate the assertion
 
 =item *
 
-extract and return the FLT (or error detail) in a response object
+extract and return the attributes (or error detail) in a response object
 
 =back
 
-The method call will return a response object containing either an FLT or
-details of the condition which meant the logon was unsuccessful.  In the case
-of an unexpected error, the method call will generate an exception which you
-will need to catch and log.
+The method call will return a response object containing either the attribute
+details or details of the condition which meant the logon was unsuccessful.  In
+the case of an unexpected error, the method call will generate an exception
+which you will need to catch and log.
+
+A response from the login service will only include an FLT attribute, whereas a
+response from the assertion service may contain a number of identity attributes.
+See L<Authen::NZRealMe::ResolutionResponse> for details of methods provided to
+access the attribute values.
 
   my $sp   = Authen::NZRealMe->service_provider( conf_dir => $path_to_config_directory );
   my $resp = eval {
@@ -422,15 +450,37 @@ just need to point the module at the right directory.  The filenames are:
 =item C<metadata-login-sp.xml>
 
 This file contains config parameters for the 'Service Provider' - your end of
-the authentication dialog.  Once you have generated the SP metadata file (see:
-L</Generating Config Files>) you will need to provide it to the RealMe logon
-service to install at their end.  You will need to generate separate metadata
-files for each of your development, staging and production environments.
+the authentication dialog - which will talk to the login service.  Once you
+have generated the SP metadata file (see: L</Generating Config Files>) you will
+need to provide it to the RealMe logon service to install at their end.  You
+will need to generate separate metadata files for each of your development,
+staging and production environments.
 
 =item C<metadata-login-idp.xml>
 
-The IdP or Identity Provider metadata file will be provided to you by the
-RealMe logon service.  You will simply need to copy it to the config directory
+The login service IdP or Identity Provider metadata file will be provided to
+you by RealMe/DIA.  You will simply need to copy it to the config directory and
+give it the correct name.
+
+=item C<metadata-assertion-sp.xml>
+
+This file is only required if you are using the assertion service and can be
+omitted if you are only using the login service.
+
+This file contains config parameters for the 'Service Provider' - your end of
+the authentication dialog - which will talk to the assertion service.  Once you
+have generated the SP metadata file (see: L</Generating Config Files>) you will
+need to provide it to the RealMe logon service to install at their end.  You
+will need to generate separate metadata files for each of your development,
+staging and production environments.
+
+=item C<metadata-assertion-idp.xml>
+
+This file is only required if you are using the assertion service and can be
+omitted if you are only using the login service.
+
+The assertion service IdP or Identity Provider metadata file will be provided
+to you by RealMe/DIA.  You will simply need to copy it to the config directory
 and give it the correct name.
 
 =item C<sp-sign-crt.pem>

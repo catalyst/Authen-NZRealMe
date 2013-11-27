@@ -981,10 +981,10 @@ Authen::NZRealMe::ServiceProvider - Class representing the local SAML2 Service P
 =head1 DESCRIPTION
 
 This class is used to represent the local SAML2 SP (Service Provider) which
-will be used to access the NZ RealMe Login service IdP (Identity Provider).  In
-normal use, an object of this class is initialised from the F<metadata-sp.xml>
-in the configuration directory.  This class can also be used to generate that
-metadata file.
+will be used to access the NZ RealMe Login service IdP (Identity Provider) or
+the NZ RealMe Assertion service IdP.  In normal use, an object of this class is
+initialised from the F<metadata-sp.xml> in the configuration directory.  This
+class can also be used to generate that metadata file.
 
 =head1 METHODS
 
@@ -1003,6 +1003,11 @@ The following options are recognised:
 The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
 of the directory containing SP and IdP metadata files as well as certificate
 and key files for request signing and mutual-SSL.
+
+=item type => ( "login" | "assertion" )
+
+Indicate whether you wish to communicate with the "login" service or the
+"assertion" service (for identity information).  Default: "login".
 
 =item skip_signature_check => [ 0 | 1 | 2 ]
 
@@ -1091,12 +1096,13 @@ This will always be the file F<sp-sign-crt.pem> in the configuration directory.
 
 =head2 idp
 
-Accessor for an object representing the Identity Provider (See:
+Accessor for an object representing the Identity Provider for the selected
+service type ("login" or "assertion").  See:
 L<Authen::NZRealMe::IdentityProvider>.
 
 =head2 nameid_format
 
-Returns a string URN representing the format of the NameID (Federated LogonTag
+Returns a string URN representing the format of the NameID (Federated Logon Tag
 - FLT) requested/expected from the Identity Provider.
 
 =head2 generate_saml_id
@@ -1138,13 +1144,15 @@ following optional key => value pairs:
 
 =item allow_create => boolean
 
-Controls whether the user should be allowed to create a new account on the IdP.
+Controls whether the user should be allowed to create a new account on the
+"login" service IdP.  Not used when talking to the "assertion service".
 Default: false.
 
 =item force_auth => boolean
 
 Controls whether the user will be forced to log in, rather than allowing the
-reuse of an existing logon session on the IdP.  Default: true.
+reuse of an existing logon session on the IdP.  Not useful, as the login
+service ignores this option anyway.  Default: true.
 
 =item auth_strength => string
 
