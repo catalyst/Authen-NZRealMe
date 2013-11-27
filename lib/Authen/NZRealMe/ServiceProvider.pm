@@ -348,7 +348,7 @@ sub resolve_artifact {
     my $soap_body = $request->soap_request;
 
     my $headers = [
-        'User-Agent: Authen-NZRealMe/' . $Authen::NZRealMe::VERSION,
+        'User-Agent: Authen-NZRealMe/' . ($Authen::NZRealMe::VERSION // '0.0'),
         'Content-Type: text/xml',
         'SOAPAction: http://www.oasis-open.org/committees/security',
         'Content-Length: ' . length($soap_body),
