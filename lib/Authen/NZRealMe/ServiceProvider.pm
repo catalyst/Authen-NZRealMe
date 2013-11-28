@@ -165,10 +165,29 @@ sub build_new {
 
     $self->{$_} = $args->{$_} foreach keys %$args;
 
-    open my $fh, '>', $conf_path or die "open(>$conf_path): $!";
-    print $fh $self->metadata_xml(), "\n";
+    $self->_write_file($conf_path, $self->metadata_xml() . "\n");
 
     return $self;
+}
+
+
+sub _read_file {
+    my($self, $filename) = @_;
+
+    local($/) = undef; # slurp mode
+    open my $fh, '<', $filename or die "open($filename): $!";
+    my $data = <$fh>;
+    return $data;
+}
+
+
+sub _write_file {
+    my($self, $filename, $data) = @_;
+
+    open my $fh, '>', $filename or die "open(>$filename): $!";
+    print $fh $data;
+
+    close($fh) or die "close(>$filename): $!";
 }
 
 
@@ -275,11 +294,7 @@ sub _signing_cert_pem_data {
     my $path = $self->signing_cert_pathname
         or die "No path to signing certificate file";
 
-    my $cert_data = do {
-        local($/) = undef; # slurp mode
-        open my $fh, '<', $path or die "open($path): $!";
-        <$fh>;
-    };
+    my $cert_data = $self->_read_file($path);
 
     $cert_data =~ s{\r\n}{\n}g;
     $cert_data =~ s{\A.*?^-+BEGIN CERTIFICATE-+\n}{}sm;
