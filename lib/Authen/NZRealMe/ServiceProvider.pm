@@ -375,19 +375,34 @@ sub resolve_artifact {
         $content =  $self->_read_file($args{_from_file_});
     }
     else {
-        my $resp = $self->_https_post($url, $headers, $soap_body);
+        my $http_resp = $self->_https_post($url, $headers, $soap_body);
 
-        die "Artifact resolution failed:\n" . $resp->as_string
-            unless $resp->is_success;
+        die "Artifact resolution failed:\n" . $http_resp->as_string
+            unless $http_resp->is_success;
 
-        $content = $resp->content;
+        $content = $http_resp->content;
 
         if($args{_to_file_}) {
             $self->_write_file($args{_to_file_}, $content);
         }
     }
 
-    return $self->_verify_assertion($content, %args);
+    my $response = $self->_verify_assertion($content, %args);
+
+    if($self->type eq 'assertion'  and  $args{resolve_flt}) {
+        $self->_resolve_flt($response);
+    }
+
+    return $response;
+}
+
+
+sub _resolve_flt {
+    my($self, $response) = @_;
+
+    my $opaque_token = $response->_icms_token();
+    warn "Opaque token:\n$opaque_token\n";
+    die "resolve_flt is not implemented";
 }
 
 
@@ -817,7 +832,7 @@ sub _extract_avs_details {
 sub _extract_icms_token {
     my($self, $response, $xml) = @_;
 
-    # Not yet implemented
+    $response->_set_icms_token($xml);
 }
 
 
@@ -1257,6 +1272,14 @@ be performed.
 
 If a logon_strength was specified, this parameter will determine how the values
 will be matched.  Provide either "minimum" (the default) or "exact".
+
+=item resolve_flt
+
+When resolving an artifact from the assertion service, you can provide this
+option with a true value to indicate that the opaque token should be resolved
+to an FLT.  If this option is not set, only the attributes from the assertion
+service will be returned and no attempt will be made to connect to the iCMS
+service.
 
 =back
 

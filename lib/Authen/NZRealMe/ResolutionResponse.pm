@@ -29,6 +29,7 @@ sub is_cancel         { return shift->status_urn eq $urn_cancel;  }
 sub is_not_registered { return shift->status_urn eq $urn_not_reg; }
 sub flt               { return shift->{flt};                      }
 sub fit               { return shift->{fit};                      }
+sub _icms_token       { return shift->{_icms_token_};             }
 sub logon_strength    { return shift->{logon_strength};           }
 sub date_of_birth     { return shift->{date_of_birth};            }
 sub place_of_birth    { return shift->{place_of_birth};           }
@@ -86,6 +87,7 @@ sub set_address_suburb          { $_[0]->{address_suburb}         = $_[1]; }
 sub set_address_town_city       { $_[0]->{address_town_city}      = $_[1]; }
 sub set_address_postcode        { $_[0]->{address_postcode}       = $_[1]; }
 sub set_address_rural_delivery  { $_[0]->{address_rural_delivery} = $_[1]; }
+sub _set_icms_token             { $_[0]->{_icms_token_}           = $_[1]; }
 
 sub address {
     my $self = shift;
