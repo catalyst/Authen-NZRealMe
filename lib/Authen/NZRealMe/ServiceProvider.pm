@@ -1207,8 +1207,13 @@ signature for the AuthnRequest HTTP-Redirect URL.
 =head2 resolve_artifact
 
 Takes an artifact (either the whole URL or just the C<SAMLart> parameter) and
-contacts the Identity Provider to resolve it to an FLT.  Parameters (including
-the original request_id) must be supplied as key => value pairs, for example:
+contacts the Identity Provider to resolve it to a set of attributes.  An
+artifact from the login server will only provide an 'FLT' attribute.  An
+artifact from the assertion server will provide identity and/or address
+attributes.
+
+Parameters (including the original request_id) must be supplied as key => value
+pairs, for example:
 
   my $resp = $sp->resolve_artifact(
       artifact        => $framework->param('SAMLart'),
@@ -1225,6 +1230,35 @@ resulting assertion, an exception will be thrown.  Expected error conditions
 return a response object that can be interrogated to determine the nature of
 the error.  The calling application may wish to log the expected errors with
 a severity of 'WARN' or 'INFO'.
+
+Recognised parameter names are:
+
+=over 4
+
+=item artifact
+
+Either the whole URL of the client request to the ACS, or just the C<SAMLart>
+parameter from the querystring.
+
+=item request_id
+
+The C<request_id> returned in the original call to C<new_request>.  Your
+application will need to store this in session state when initiating the
+dialogue with the IdP and retrieve it from state when resolving the artifact.
+
+=item logon_strength
+
+Optional parameter which may be used to check that the response from the logon
+service matches your application's logon strength requirements.  Specify as a
+URN string or a word (e.g.: "low", "moderate").  If not provided, no check will
+be performed.
+
+=item strength_match
+
+If a logon_strength was specified, this parameter will determine how the values
+will be matched.  Provide either "minimum" (the default) or "exact".
+
+=back
 
 =head2 now_as_iso
 
