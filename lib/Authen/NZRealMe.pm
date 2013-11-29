@@ -187,6 +187,8 @@ sub _dispatch_resolve {
     );
     $args{logon_strength} = shift if @_;
     $args{strength_match} = shift if @_;
+    $args{_to_file_}      = $opt->{to_file}   if $opt->{to_file};
+    $args{_from_file_}    = $opt->{from_file} if $opt->{from_file};
     my $response = eval {
         $sp->resolve_artifact(%args);
     };

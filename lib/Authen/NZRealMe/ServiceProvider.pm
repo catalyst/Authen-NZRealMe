@@ -370,12 +370,24 @@ sub resolve_artifact {
     ];
 
 
-    my $resp = $self->_https_post($url, $headers, $soap_body);
+    my $content;
+    if($args{_from_file_}) {
+        $content =  $self->_read_file($args{_from_file_});
+    }
+    else {
+        my $resp = $self->_https_post($url, $headers, $soap_body);
 
-    die "Artifact resolution failed:\n" . $resp->as_string
-        unless $resp->is_success;
+        die "Artifact resolution failed:\n" . $resp->as_string
+            unless $resp->is_success;
 
-    return $self->_verify_assertion($resp->content, %args);
+        $content = $resp->content;
+
+        if($args{_to_file_}) {
+            $self->_write_file($args{_to_file_}, $content);
+        }
+    }
+
+    return $self->_verify_assertion($content, %args);
 }
 
 

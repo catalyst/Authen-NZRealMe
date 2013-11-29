@@ -34,6 +34,8 @@ if(!GetOptions(\%opt,
     'org_unit|org-unit=s',
     'subject=s',
     'domain=s',
+    'to_file|to-file=s',
+    'from_file|from-file=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
 }
@@ -202,6 +204,19 @@ Optional additional details to go on the end of the certificate subject field.
 The CN will be calculated for you based on --domain.  The O and OU will be
 added based on --org and --org-unit.  Prefix each fieldname with a forward
 slash (e.g.: --subject /L=Wellington/ST=Wellington/C=NZ).
+
+=item B<< --to-file <filename> >>
+
+This option is a debugging aid.  When using the C<resolve> command, this option
+will cause the SAML assertion response from the login or assertion service to
+be saved in a file.
+
+=item B<< --from-file <filename> >>
+
+This option is a debugging aid.  When using the C<resolve> command, instead of
+communicating with the login or assertion service, this option will cause the
+SAML assertion response to be loaded from a file (presumably one created using
+the C<--to-file> option.
 
 =back
 
