@@ -851,8 +851,21 @@ sub _to_xml_string {
         $self->_gen_organization(),
         $self->_gen_contact(),
     );
+
+    # apply fixups
     $xml =~ s{ _xml_lang_attribute="}{ xml:lang="}sg;
+    $xml =~ s{\s*<NoIndentContent.*?>(.*?)</NoIndentContent.*?>\s*}
+             {_unindent_element_content($1)}sge;
+
     return $xml;
+}
+
+
+sub _unindent_element_content {
+    my($content) = @_;
+
+    $content =~ s{^\s+}{}mg;
+    return $content;
 }
 
 
@@ -895,7 +908,7 @@ sub _gen_signing_key {
         $x->KeyInfo($ns_ds,
             $x->X509Data($ns_ds,
                 $x->X509Certificate($ns_ds,
-                    $self->_signing_cert_pem_data(),
+                    $x->NoIndentContent( $self->_signing_cert_pem_data() ),
                 ),
             ),
         ),
