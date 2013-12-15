@@ -133,10 +133,9 @@ sub _dispatch_make_certs {
 sub _dispatch_make_meta {
     my($class, $opt) = @_;
 
-    my $sp = $class->class_for('service_provider')->build_new(
-        conf_dir => _conf_dir($opt),
+    $class->class_for('service_provider')->build_meta(
+        conf_dir => _conf_dir($opt)
     );
-    print "File saved\n" if $sp;
 }
 
 

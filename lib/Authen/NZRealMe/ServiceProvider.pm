@@ -55,6 +55,7 @@ my @avs_namespaces = ( $ns_xpil, $ns_xal );
 my %urn_nameid_format = (
     login     => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
     assertion => 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
+    unspec    => 'urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified',
 );
 
 my %urn_attr_name = (
@@ -144,30 +145,10 @@ sub generate_certs {
 }
 
 
-sub build_new {
+sub build_meta {
     my($class, %opt) = @_;
 
-    my $conf_dir  = $opt{conf_dir} or die "conf_dir not specified\n";
-    my $conf_path = $class->_metadata_pathname($conf_dir);
-
-    my $self = -r $conf_path
-               ? $class->new(conf_dir => $opt{conf_dir})
-               : $class->new_defaults(conf_dir => $opt{conf_dir});
-
-    my $args = eval {
-        Authen::NZRealMe->class_for('sp_builder')->build($self);
-    };
-    if($@) {
-        print STDERR "$@";
-        exit 1;
-    }
-    return unless $args;
-
-    $self->{$_} = $args->{$_} foreach keys %$args;
-
-    $self->_write_file($conf_path, $self->metadata_xml() . "\n");
-
-    return $self;
+    Authen::NZRealMe->class_for('sp_builder')->build($class, %opt);
 }
 
 
@@ -926,9 +907,15 @@ sub _name_id_format {
     my $self = shift;
     my $x    = $self->_x;
 
-    return $x->NameIDFormat(
-        $self->nameid_format
+    my @formats = (
+        $x->NameIDFormat( $self->nameid_format )
     );
+
+    if($self->type eq 'assertion') {
+        push @formats, $x->NameIDFormat( $urn_nameid_format{unspec} );
+    }
+
+    return @formats;
 }
 
 
@@ -1162,7 +1149,7 @@ Called by the C<< nzrealme make-certs >> command to run an interactive Q&A
 session to generate either self-signed certificates or Certificate Signing
 Requests (CSRs).  Delegates to L<Authen::NZRealMe::ServiceProvider::CertFactory>
 
-=head2 build_new
+=head2 build_meta
 
 Called by the C<< nzrealme make-meta >> command to run an interactive Q&A
 session to initialise or edit the contents of the Service Provider metadata

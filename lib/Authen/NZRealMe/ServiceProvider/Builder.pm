@@ -7,6 +7,7 @@ use feature "switch";
 use Term::ReadLine  qw();
 use File::Path      qw(rmtree);
 use File::Copy      qw(copy);
+use Cwd             qw(getcwd);
 
 my $prog_name = 'nzrealme';
 my $term      = undef;
@@ -49,30 +50,101 @@ EOF
 
 );
 
+my @field_names = map { $_ % 2 ? () : $fields[$_] } ( 0 .. $#fields );
+
+
 sub build {
-    my($class, $sp) = @_;
+    my($class, $sp_class, %opt) = @_;
 
-    $class->_check_conf($sp->conf_dir);
-    my %f = @fields;
-    my $args =  { map { $_ => $sp->{$_} } keys %f };
+    _check_conf($opt{conf_dir});
 
+    _init_term();
+    my $scope = $class->_prompt_builder_scope() || return;
+
+    if($scope =~ /login/) {
+        $class->_build_meta($sp_class, 'login', %opt);
+    }
+    if($scope =~ /assertion/) {
+        $class->_build_meta($sp_class, 'assertion', %opt);
+    }
+}
+
+
+sub _init_term {
     $term = Term::ReadLine->new($prog_name);
     if($term->Attribs and $term->Attribs->can('ornaments')) {
         $term->Attribs->ornaments(0);
     }
     else {
-        warn "Consider installing Term::ReadLine::Gnu for better terminal handling.\n";
+        warn "Consider installing Term::ReadLine::Gnu for better terminal handling.\n\n";
     }
+}
+
+
+sub _prompt_builder_scope {
+    my($class) = @_;
 
     print <<EOF;
-This tool will allow you to create or edit your Service Provider metadata
-file by leading you through a series of questions and then prompting you
-to save the results.
+This tool allows you to generate or edit the Service Provider metadata
+required to integrate with the login service or the assertion service.
+
+  1) Generate/edit SP metadata for only the login service
+  2) Generate/edit SP metadata for only the assertion service
+  3) Generate/edit SP metadata for both the login and assertion services
+  4) Exit without making any changes
 
 EOF
 
-    _prompt_yes_no('Do you wish to continue with this process? (y/n) ', 'y')
-        or return;
+    my $resp = _menu_prompt("Select 1-4: ", qr{^[1234]$});
+    return {
+        1   => 'login',
+        2   => 'assertion',
+        3   => 'login,assertion',
+    }->{$resp}
+}
+
+
+sub _build_meta {
+    my($class, $sp_class, $type, %opt) = @_;
+
+    my $conf_dir  = $opt{conf_dir};
+    my $conf_path = $sp_class->_metadata_pathname($conf_dir, $type);
+    _check_idp_metadata($conf_dir, $type);
+
+    my $sp    = $class->_init_sp($sp_class, $conf_dir, $conf_path, $type);
+    my $args  = $class->_prompt_field_values($sp);
+    $sp->{$_} = $args->{$_} foreach @field_names;
+
+    print "\nSaving metadata file: $conf_path\n\n";
+    $sp->_write_file($conf_path, $sp->metadata_xml() . "\n");
+}
+
+
+sub _init_sp {
+    my($class, $sp_class, $conf_dir, $conf_path, $type) = @_;
+
+    if(-r $conf_path) {
+        return $sp_class->new(conf_dir => $conf_dir, type => $type);
+    }
+
+    my $sp = $sp_class->new_defaults(conf_dir => $conf_dir, type => $type);
+
+    my $other_type = $type eq 'login' ? 'assertion' : 'login';
+    my $other_conf = $sp_class->_metadata_pathname($conf_dir, $other_type);
+    if(-r $other_conf) {
+        print "\nSetting initial defaults from $other_conf\n\n";
+        my $other_sp = $sp_class->new(conf_dir => $conf_dir, type => $other_type);
+        $sp->{$_} = $other_sp->{$_} foreach @field_names;
+    }
+
+    return $sp;
+}
+
+
+sub _prompt_field_values {
+    my($class, $sp) = @_;
+
+    my $args = { map { $_ => $sp->{$_} } @field_names };
 
     TRY: while(1) {
         for(my $i = 0; $i <= $#fields; $i += 2) {
@@ -96,6 +168,18 @@ EOF
     }
 
     return $args;
+}
+
+
+sub _check_idp_metadata {
+    my($conf_dir, $type) = @_;
+
+    my $path = "$conf_dir/metadata-${type}-idp.xml";
+    return if -e $path;
+
+    warn "WARNING - File does not exist: $path\n"
+       . "You should copy the IdP metadata file provided in the RealMe integration\n"
+       . "bundle and save it using the filename shown above.\n\n";
 }
 
 
@@ -137,7 +221,6 @@ sub _validate_entity_id {
 
 
 sub _check_conf {
-    my $class = shift;
     my $dir   = shift or die "conf_dir not defined\n";
 
     die "Config directory '$dir' does not exist\n" unless -d "$dir/.";
@@ -155,11 +238,18 @@ sub _check_conf {
         die join("\n",
             "The following key-pair files are missing:",
             map { " * $_" } @missing,
-        ) . "\n$hint\n"
+        ) . "\n\n$hint\n\n"
     }
+}
 
-    warn "WARNING: $dir/metadata-idp.xml does not exist\n"
-        unless -e "$dir/metadata-idp.xml";
+
+sub _menu_prompt {
+    my($prompt, $regex) = @_;
+
+    while(1) {
+        my $resp = $term->readline($prompt);
+        return $resp if $resp =~ $regex;
+    }
 }
 
 
