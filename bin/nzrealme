@@ -18,6 +18,7 @@ use warnings;
 
 use Pod::Usage;
 use Getopt::Long qw(GetOptions);
+use Cwd          qw(getcwd);
 
 use Authen::NZRealMe;
 
@@ -48,8 +49,10 @@ if($opt{help} or (@ARGV && $ARGV[0] eq 'help')) {
 
 $ARGV[0] ||= 'version' if $opt{version};
 
+my $start_dir = getcwd();
 eval { Authen::NZRealMe->run_command(\%opt, @ARGV); };
 if($@) {
+    chdir($start_dir);
     pod2usage(-exitstatus => 1, -verbose => 0, -message => "$@");
 }
 
