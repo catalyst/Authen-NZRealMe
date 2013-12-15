@@ -209,11 +209,15 @@ sub _dispatch_version {
 sub _conf_dir {
     my($opt) = @_;
 
-    return $opt->{conf_dir} if $opt->{conf_dir};
+    if($opt->{conf_dir}) {
+        $opt->{conf_dir} =~ s{/\z}{};
+        return $opt->{conf_dir} if -d $opt->{conf_dir};
+        die "Directory does not exist: $opt->{conf_dir}";
+    }
     my $cmnd = (caller(1))[3];
     $cmnd =~ s/^.*::_dispatch_//;
     $cmnd =~ s/_/-/g;
-    die "$cmnd command needs --conf-dir option\n" unless $opt->{conf_dir};
+    die "$cmnd command needs --conf-dir option\n";
 }
 
 1;
