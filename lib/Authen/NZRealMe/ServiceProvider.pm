@@ -254,10 +254,13 @@ sub _read_metadata_from_file {
 sub _metadata_pathname {
     my $self     = shift;
     my $conf_dir = shift;
+    my $type     = shift;
+
+    $type //= $self->type;
 
     $conf_dir ||= $self->conf_dir or die "conf_dir not set";
 
-    return $conf_dir . '/metadata-' . $self->type . '-sp.xml';
+    return $conf_dir . '/metadata-' . $type . '-sp.xml';
 }
 
 
