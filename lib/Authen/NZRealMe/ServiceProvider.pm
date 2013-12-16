@@ -173,10 +173,20 @@ sub _write_file {
 
 
 sub make_bundle {
-    my $class = shift;
+    my($class, %opt) = @_;
 
-    my $sp = $class->new(@_);
-    return Authen::NZRealMe->class_for('sp_builder')->make_bundle($sp);
+    my $conf_dir = $opt{conf_dir};
+    foreach my $type (qw(login assertion)) {
+        my $conf_path = $class->_metadata_pathname($conf_dir, $type);
+        if(-r $conf_path) {
+          my $sp = $class->new(
+              conf_dir  => $conf_dir,
+              type      => $type,
+          );
+          my $zip = Authen::NZRealMe->class_for('sp_builder')->make_bundle($sp);
+          print "Created metadata bundle for '$type' IDP at:\n$zip\n\n";
+        }
+    }
 }
 
 

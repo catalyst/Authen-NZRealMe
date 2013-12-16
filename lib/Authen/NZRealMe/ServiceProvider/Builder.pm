@@ -269,6 +269,8 @@ sub _prompt_yes_no {
 sub make_bundle {
     my($self, $sp) = @_;
 
+    my $start_dir = getcwd();
+
     my($sp_name) = $sp->entity_id =~ m{//([^/]+)/};
     $sp_name =~ s{([.][^.]+){2}$}{};
     $sp_name =~ s{^(www|secure)[.]}{};
@@ -278,6 +280,7 @@ sub make_bundle {
     my($env) = $idp_name =~ m{www[.](mts|ite)};
     $env ||= 'prod';
 
+    my $type     = $sp->type;
     my $conf_dir = $sp->conf_dir;
     my $work_dir = "$conf_dir/bundle";
     rmtree($work_dir) if -e $work_dir;
@@ -285,14 +288,14 @@ sub make_bundle {
     mkdir($work_dir) or die "mkdir($work_dir)";
     chdir($work_dir) or die "chdir($work_dir)";
 
-    my $zip_file      = $sp->conf_dir . "/${env}_sp_${sp_name}.zip";
+    my $zip_file      = $sp->conf_dir . "/${env}_${type}_sp_${sp_name}.zip";
     my $metadata_file = "${env}_sp_saml_metadata_${sp_name}.xml";
     my $signing_cert  = "${env}_sp_saml_sign_${sp_name}.cer";
     my $ssl_cert      = "${env}_sp_mutual_ssl_${sp_name}.cer";
 
     print "Assembling metadata and certificate files\n";
 
-    copy('../metadata-sp.xml' => $metadata_file)
+    copy("../metadata-$type-sp.xml" => $metadata_file)
         or die "error copying $conf_dir/metadata-sp.xml: $!\n";
 
     copy('../sp-sign-crt.pem' => $signing_cert)
@@ -307,8 +310,9 @@ sub make_bundle {
     chdir('..') or die "chdir('..'): $!";
     rmtree($work_dir);
 
-    return $zip_file;
+    chdir($start_dir) or die "chdir($start_dir): $!";
 
+    return $zip_file;
 }
 
 
