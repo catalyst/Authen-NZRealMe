@@ -117,9 +117,11 @@ sub as_string {
     }
 
     if($self->service_type eq "assertion") {
+        my $opaque_token = $self->_icms_token ? 'present' : 'not present';
         push @out, "Assertion Service Response";
         push @out, "    status_urn: " . $self->status_urn;
         push @out, "    fit: " . $self->fit;
+        push @out, "    opque-token: " . $opaque_token;
         if($self->{flt}) {
             push @out, "    flt: " . $self->flt;
         }
