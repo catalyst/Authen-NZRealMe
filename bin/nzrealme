@@ -38,6 +38,7 @@ if(!GetOptions(\%opt,
     'domain=s',
     'to_file|to-file=s',
     'from_file|from-file=s',
+    'id_attr|id-attr=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
 }
@@ -156,7 +157,7 @@ request; send the request to the IdP using SOAP over the SSL back-channel;
 validate the resulting assertion; and extract the FLT (Federated Logon Tag)
 from the response.
 
-Note: in practice a SML artifact must be resolved very soon after it is
+Note: in practice a SAML artifact must be resolved very soon after it is
 generated or it will expire.
 
 =item version

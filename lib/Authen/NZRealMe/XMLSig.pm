@@ -17,21 +17,33 @@ messaging.
 
 
 use Carp          qw(croak);
-use Digest::SHA   qw(sha1 sha1_base64);
+use Digest::SHA   qw(sha1 sha1_base64 sha256);
 use MIME::Base64  qw(encode_base64 decode_base64);
 
 require XML::LibXML;
 require XML::LibXML::XPathContext;
+require XML::Generator;
 require Crypt::OpenSSL::RSA;
 require Crypt::OpenSSL::X509;
 
-my $ns_ds            = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
+my $ns_ds      = [ ds     => 'http://www.w3.org/2000/09/xmldsig#'   ];
+my $ns_exc14n  = [ exc14n => 'http://www.w3.org/2001/10/xml-exc-c14n#' ];
+my $ns_soap    = [ soap   => 'http://www.w3.org/2003/05/soap-envelope' ];
+my $ns_wsu     = [ wsu   => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd' ];
+my $ns_wsse    = [ wsse  => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' ];
+
 
 my $uri_rsa_sha1_sig = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
 my $uri_env_sig      = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 my $uri_c14n         = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
 my $uri_ec14n        = 'http://www.w3.org/2001/10/xml-exc-c14n';
 my $uri_digest_sha1  = 'http://www.w3.org/2000/09/xmldsig#sha1';
+my $uri_digest_sha256= 'http://www.w3.org/2001/04/xmlenc#sha256';
+
+my $digest_uris = {
+    $uri_digest_sha1   => "_xml_digest_sha1",
+    $uri_digest_sha256 => "_xml_digest_sha256",
+};
 
 use constant WITH_COMMENTS    => 1;
 use constant WITHOUT_COMMENTS => 0;
@@ -43,7 +55,6 @@ sub new {
         id_attr => 'ID',
         @_
     }, $class;
-
     return $self;
 }
 
@@ -73,6 +84,106 @@ sub sign {
     return $doc->toString;
 }
 
+sub sign_using_signedinfo {
+    my($self, $xml, $target_ids) = @_;
+    my $doc      = $self->_xml_to_dom($xml);
+
+    die 'Passed in ref should be an array' if (ref $target_ids ne 'ARRAY');
+
+    my $x = XML::Generator->new();
+
+    # Generate the the reference blocks for each target
+    my $signedinfo;
+    foreach my $target( @$target_ids ) {
+        $signedinfo .= $self->_generate_reference_block($doc, $target->{id}, $target->{namespaces});
+    }
+    $signedinfo = $x->SignedInfo( $ns_ds,
+        $x->CanonicalizationMethod( $ns_ds, { Algorithm => 'http://www.w3.org/2001/10/xml-exc-c14n#' }),
+        $x->SignatureMethod( $ns_ds, { Algorithm => 'http://www.w3.org/2000/09/xmldsig#rsa-sha1' } ),
+        $signedinfo,
+    )."";
+
+    # Generate SignatureValue for whole SignedInfo block
+    my $canonical_signedinfo = $self->_canonicalize('http://www.w3.org/2001/10/xml-exc-c14n#', $signedinfo);
+    my $signature = $self->rsa_signature($canonical_signedinfo, '');
+
+    # Generate and add key info block
+    my $x509 = Crypt::OpenSSL::X509->new_from_string($self->pub_cert_text);
+    my $keyinfo_block = $x->KeyInfo( $ns_ds, { Id => 'KI-'.$self->_key_fingerprint($x509).'1' },
+        $x->SecurityTokenReference( $ns_wsse, { Id => 'STR-'.$self->_key_fingerprint($x509).'2' },
+            $x->KeyIdentifier( $ns_wsse,
+                { EncodingType => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary",
+                    ValueType    => "http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#ThumbprintSHA1" },
+                $self->_hex2b64($x509->fingerprint_sha1()), # For some insane reason RealMe uses the raw fingerprint bytes b64encoded, rather than a normal fingerprint
+            ),
+        ),
+    ).'';
+
+    # Build combined xml block
+    my $signature_block = $x->Signature( $ns_ds, { Id => 'SIG-4' },
+        $signedinfo,
+        $x->SignatureValue( $ns_ds, $signature ),
+        $keyinfo_block,
+    )."";
+
+    # Insert whole block as the last element in the soap:Header section
+    my $sig_dom = $self->_xml_to_dom($signature_block);
+    my $xc     = XML::LibXML::XPathContext->new( $doc );
+    foreach my $ns ( [$ns_soap, $ns_wsse] ) {
+        $xc->registerNs( @$ns );
+    }
+    my ( $security_node ) = $xc->findnodes("/soap:Envelope/soap:Header/wsse:Security");
+    $security_node->appendChild($sig_dom);
+    return $doc->toString(0);
+}
+
+sub _key_fingerprint {
+    my ($self, $x509) = @_;
+    my $fingerprint = $x509->fingerprint_sha1();
+    $fingerprint =~ s/://g;
+    return $fingerprint;
+}
+
+sub _hex2b64 {
+    shift;
+    my $hex = shift;
+    $hex =~ s/://g;
+    my $bin = pack("H*", $hex);
+    my $b64 = encode_base64($bin, '');
+    return $b64;
+}
+
+sub _generate_reference_block {
+    my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
+
+    my $digest = $self->_generate_digest($doc, $target_id, $inclusive_namespaces);
+    my $x = XML::Generator->new(
+#         pretty => 2,
+    );
+
+    my $prefix_hash = {};
+    $prefix_hash = { PrefixList => join( ' ', @$inclusive_namespaces) } if ($inclusive_namespaces);
+
+    my $block = $x->Reference( $ns_ds, { URI => "#$target_id" },
+        $x->Transforms( $ns_ds,
+            $x->Transform( $ns_ds, { Algorithm => $uri_ec14n.'#' },
+                $x->InclusiveNamespaces( [ ec => "http://www.w3.org/2001/10/xml-exc-c14n#" ], $prefix_hash ),  # Hopefully these won't be necessary
+            ),
+        ),
+        $x->DigestMethod( $ns_ds, { Algorithm => "http://www.w3.org/2001/04/xmlenc#sha256" } ),
+        $x->DigestValue( $ns_ds, $digest ),
+    ) . '';
+    return $block."\n";
+}
+
+sub _generate_digest {
+    my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
+    my $id_attr  = $self->id_attr;
+    my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
+            or croak "Can't find element with ${id_attr}='${target_id}'";
+    return $self->_xml_digest_sha256($target, $inclusive_namespaces);
+}
+
 
 sub default_target_id {
     my($self, $doc) = @_;
@@ -86,7 +197,7 @@ sub default_target_id {
 
 
 sub _canonicalize {
-    my($self, $c14n_method_uri, $xml) = @_;
+    my($self, $c14n_method_uri, $xml, $inclusive_namespaces) = @_;
 
     my($base_uri, $hash_frag) =
         $c14n_method_uri =~ m{\A(http:[^#]+)(?:#(.*))\z}
@@ -99,7 +210,7 @@ sub _canonicalize {
         return $self->_c14n_xml($xml, $comments);
     }
     elsif($base_uri eq $uri_ec14n) {
-        return $self->_ec14n_xml($xml, $comments);
+        return $self->_ec14n_xml($xml, $comments, $inclusive_namespaces);
     }
     die "Unsupported canonicalization method: $c14n_method_uri";
 }
@@ -116,21 +227,28 @@ sub _c14n_xml {
 }
 
 sub _ec14n_xml {
-    my($self, $frag, $comments) = @_;
+    my($self, $frag, $comments, $inclusive_namespaces) = @_;
 
     if(not ref $frag) {   # convert XML string to a DOM node
         $frag = $self->_xml_to_dom($frag);
     }
 
-    return $frag->toStringEC14N($comments);
+    return $frag->toStringEC14N($comments,'',$inclusive_namespaces);
 }
 
 
-sub _xml_digest {
-    my($self, $frag) = @_;
+sub _xml_digest_sha1 {
+    my($self, $frag, $inclusive_namespaces) = @_;
 
-    my $frag_xml   = $self->_ec14n_xml($frag);
+    my $frag_xml   = $self->_ec14n_xml($frag, WITHOUT_COMMENTS, $inclusive_namespaces);
     my $bin_digest = sha1($frag_xml);
+    return encode_base64($bin_digest, '');
+}
+
+sub _xml_digest_sha256 {
+    my($self, $frag, $inclusive_namespaces) = @_;
+    my $frag_xml   = $self->_ec14n_xml($frag, WITHOUT_COMMENTS, $inclusive_namespaces);
+    my $bin_digest = sha256($frag_xml);
     return encode_base64($bin_digest, '');
 }
 
@@ -147,7 +265,7 @@ sub _xml_to_dom {
 sub _make_signature_xml {
     my($self, $frag, $id) = @_;
 
-    my $digest     = $self->_xml_digest($frag);
+    my $digest     = $self->_xml_digest_sha1($frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
     my $sig_value  = $self->rsa_signature($self->_ec14n_xml($sig_info));
 
@@ -173,10 +291,8 @@ sub rsa_signature {
 
 sub _verify_rsa_signature {
     my($self, $plaintext, $signature) = @_;
-
     my $rsa_cert = Crypt::OpenSSL::RSA->new_public_key($self->pub_key_text);
     $rsa_cert->use_pkcs1_padding();
-
     my $bin_sig = decode_base64($signature);
     return $rsa_cert->verify($plaintext, $bin_sig);
 }
@@ -207,30 +323,38 @@ sub verify {
     my $xc  = XML::LibXML::XPathContext->new($doc);
 
     $xc->registerNs( @$ns_ds );
+    $xc->registerNs( @$ns_exc14n );
+    $xc->registerNs( @$ns_soap );
+    $xc->registerNs( @$ns_wsu );
 
-    my @sigs;
-    foreach my $sig ( $xc->findnodes(q{//ds:Signature}) ) {
-        push @sigs, $self->_parse_signature($xc, $sig);
+    my @signature_blocks;
+    foreach my $sig ( $xc->findnodes(q{//ds:Signature[not(ancestor::soap:Body)]}) ) { # Exclude signatures encapsulated in the SOAP body
+        push @signature_blocks, $self->_parse_signature($xc, $sig);
         $sig->parentNode->removeChild($sig);
     }
-    croak "XML document contains no signatures" unless @sigs;
+    croak "XML document contains no signatures" unless @signature_blocks;
 
     my $id_attr  = $self->id_attr;
-    foreach my $sig ( @sigs ) {
-        my($frag)  = $xc->findnodes("//*[\@${id_attr}='$sig->{ref_id}']")
-            or croak "Can't find element with ${id_attr}='$sig->{ref_id}'";
-        my $digest = $self->_xml_digest($frag);
-        if($digest ne $sig->{digest}) {
-            die "Digest for signed element '$sig->{ref_id}' "
-                . "differs from signature\n"
-                . "Expected:   '$sig->{digest}'\n"
-                . "Calculated: '$digest'\n ";
+
+    foreach my $block ( @signature_blocks ) {
+        foreach my $reference ( @$block ) {
+            my($frag)  = $xc->findnodes("//*[\@${id_attr}='$reference->{ref_id}']")
+                or croak "Can't find element with ${id_attr}='$reference->{ref_id}'";
+
+            my $digest_function = $digest_uris->{$reference->{digest_method}};
+            my $digest = $self->$digest_function($frag, $reference->{inclusive_namespaces});
+
+            if($digest ne $reference->{digest}) {
+                die "Digest of signed element '$reference->{ref_id}' "
+                    . "differs from that given in reference block\n"
+                    . "Expected:   '$reference->{digest}'\n"
+                    . "Calculated: '$digest'\n ";
+            }
         }
     }
 
     return 1;
 }
-
 
 sub _parse_signature {
     my($self, $xc, $sig) = @_;
@@ -241,54 +365,66 @@ sub _parse_signature {
     my $c14n_method = $xc->findvalue(q{./ds:CanonicalizationMethod/@Algorithm}, $sig_info)
         or die "Can't find CanonicalizationMethod in " . $sig->toString;
 
+    my $c14n_namespaces = [split ' ', $xc->findvalue( q{./ds:CanonicalizationMethod/exc14n:InclusiveNamespaces/@PrefixList}, $sig_info)];
+
     my $algorithm = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
         or die "Can't find SignatureMethod in " . $sig->toString;
 
     die "Unsupported signature algorithm: '$algorithm'"
         unless $algorithm eq $uri_rsa_sha1_sig;
 
-    my($ref) = $xc->findnodes(q{.//ds:Reference}, $sig)
-        or die "Can't verify a signature without a 'Reference' element";
+    my $references = [];
 
-    my $ref_uri = $xc->findvalue('./@URI', $ref)
-        or die "Reference element is missing the URI attribute";
-    $ref_uri =~ s{^#}{};
+    foreach my $ref ( $xc->findnodes(q{.//ds:Reference}, $sig) ) {
+        my $ref_data = {};
 
-    my($digest_method) = map { $_->to_literal } $xc->findnodes(
-        './ds:DigestMethod/@Algorithm',
-        $ref
-    ) or die "Unable to determine Signature Reference DigestMethod";
-    die "Unsupported Signature DigestMethod: '$digest_method'"
-        unless $digest_method eq $uri_digest_sha1;
+        my $ref_uri = $xc->findvalue('./@URI', $ref)
+            or die "Reference element is missing the URI attribute";
+        $ref_uri =~ s{^#}{};
+        $ref_data->{ref_id} = $ref_uri;
 
-    my($digest) = map { $_->to_literal } $xc->findnodes(
-        './ds:DigestValue',
-        $ref
-    ) or die "Unable to determine Signature DigestValue";
-
-    foreach my $xform (
-        map { $_->to_literal } $xc->findnodes(
-            q{./ds:Transforms/ds:Transform/@Algorithm},
+        my($digest_method) = map { $_->to_literal } $xc->findnodes(
+            './ds:DigestMethod/@Algorithm',
             $ref
-        )
-    ) {
-        next if $xform eq $uri_env_sig;
-        next if $xform =~ m{\A\Q$uri_c14n\E(?:#(?:WithComments)?)?\z};
-        next if $xform =~ m{\A\Q$uri_ec14n\E(?:#(?:WithComments)?)?\z};
-        die "Unsupported transformation: '$xform'";
-    }
+        ) or die "Unable to determine Signature Reference DigestMethod for $ref_uri";
+        die "Unsupported Signature DigestMethod: '$digest_method' for $ref_uri"
+            unless $digest_uris->{$digest_method};
+        $ref_data->{digest_method} = $digest_method;
 
+        my($digest) = map { $_->to_literal } $xc->findnodes(
+            './ds:DigestValue',
+            $ref
+        ) or die "Unable to determine Signature DigestValue";
+        $ref_data->{digest} = $digest;
+
+        foreach my $xform (
+            map { $_->to_literal } $xc->findnodes(
+                q{./ds:Transforms/ds:Transform/@Algorithm},
+                $ref
+            )
+        ) {
+            next if $xform eq $uri_env_sig;
+            next if $xform =~ m{\A\Q$uri_c14n\E(?:#(?:WithComments)?)?\z};
+            if ( $xform =~ m{\A\Q$uri_ec14n\E(?:#(?:WithComments)?)?\z} ) {
+                my $inc_namespaces = $xc->findvalue(
+                    q{./ds:Transforms/ds:Transform/exc14n:InclusiveNamespaces/@PrefixList},
+                    $ref
+                );
+                $ref_data->{inclusive_namespaces} = [split ' ', $inc_namespaces] if $inc_namespaces;
+                next;
+            }
+            die "Unsupported transformation: '$xform' on digest for $ref_uri";
+        }
+        push $references, $ref_data;
+    }
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
-    my $plaintext = $self->_canonicalize($c14n_method, $sig_info);
+    my $plaintext = $self->_canonicalize($c14n_method, $sig_info, $c14n_namespaces);
 
     $self->_verify_rsa_signature($plaintext, $sig_val)
-        or die "Invalid signature referencing '$ref_uri'";
+        or die "SignedInfo block signature does not match";
 
-    return {
-        digest => $digest,
-        ref_id => $ref_uri,
-    };
+    return $references;
 }
 
 
@@ -323,7 +459,6 @@ sub pub_cert_text {
     my($self) = @_;
 
     return $self->{pub_cert_text} if $self->{pub_cert_text};
-
     my $path = $self->{pub_cert_file}
         or croak "signing cert must be set with 'pub_cert_file' or 'pub_cert_text'";
 
@@ -389,6 +524,23 @@ constructor.
 Takes an XML document and an optional element ID value and returns a string of
 XML with a digital signature added.  The XML document can be provided either as
 a string or as an XML::LibXML DOM object.
+
+=head2 sign_using_signedinfo ( $xml, $target_ids )
+
+Takes an XML document and an array of hashes representing the ID and
+InclusiveNamespaces of any DOM elements to sign, identified by an ID attribute
+value. The input array should resemble this example:
+
+        [ {
+            id          => 's23a05470f2ac691e7ebc19a90b8f04a6336dad2fe',
+            namespaces  => ['soap'],
+        },  {
+            id          => 's254212e7245af1ee3a909a364273b0be7726e8808',
+        } ]
+
+The name of the attribute is determined by the id_attr method above.
+The document will have a signature block generated and inserted into it, and
+the method will return a string of the document and it's included signatures.
 
 =head2 default_target_id( )
 
