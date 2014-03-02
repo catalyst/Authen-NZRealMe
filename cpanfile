@@ -8,6 +8,7 @@ requires 'Crypt::OpenSSL::RSA';
 requires 'Crypt::OpenSSL::X509';
 requires 'Digest::SHA';
 requires 'IO::Compress::RawDeflate';
+requires 'Data::UUID';
 
 on 'test' => sub {
     requires 'Test::More', '0.88';
