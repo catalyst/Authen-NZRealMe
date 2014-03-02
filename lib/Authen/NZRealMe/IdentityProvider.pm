@@ -36,11 +36,11 @@ sub conf_dir              { shift->{conf_dir};               }
 sub type                  { shift->{type};                   }
 sub entity_id             { shift->{entity_id};              }
 sub single_signon_location{ shift->{single_signon_location}; }
+sub signing_cert_pem_data { shift->{signing_cert_pem_data};  }
 
-sub signing_cert_pem_data {
-    my ($self, $type) = @_;
-    return $self->{signing_cert_pem_data} if (!defined $type);
-
+sub login_cert_pem_data {
+    my $self = shift;
+    my $type = 'login';
     my $cache_key = $self->conf_dir . '-' . $type;
     my $params = $metadata_cache{$cache_key} || $self->_read_metadata_from_file($type);
     return $params->{signing_cert_pem_data};

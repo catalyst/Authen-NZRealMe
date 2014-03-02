@@ -536,7 +536,7 @@ sub _extract_flt {
     # bizarre reason) signed with the key the login service uses.
     eval {
         my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
-            pub_cert_text => $idp->signing_cert_pem_data('login'),
+            pub_cert_text => $idp->login_cert_pem_data(),
             id_attr       => 'wsu:Id',
         );
         $verifier->verify($xml);
