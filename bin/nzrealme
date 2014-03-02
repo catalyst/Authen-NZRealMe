@@ -38,7 +38,6 @@ if(!GetOptions(\%opt,
     'domain=s',
     'to_file|to-file=s',
     'from_file|from-file=s',
-    'id_attr|id-attr=s',
 )) {
     pod2usage(-exitval => 1,  -verbose => 0);
 }
