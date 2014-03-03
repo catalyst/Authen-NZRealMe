@@ -57,15 +57,16 @@ tool.
 
 
 my %class_map = (
-    service_provider    => 'Authen::NZRealMe::ServiceProvider',
-    identity_provider   => 'Authen::NZRealMe::IdentityProvider',
-    xml_signer          => 'Authen::NZRealMe::XMLSig',
-    sp_builder          => 'Authen::NZRealMe::ServiceProvider::Builder',
-    sp_cert_factory     => 'Authen::NZRealMe::ServiceProvider::CertFactory',
-    resolution_request  => 'Authen::NZRealMe::ResolutionRequest',
-    resolution_response => 'Authen::NZRealMe::ResolutionResponse',
-    authen_request      => 'Authen::NZRealMe::AuthenRequest',
-    logon_strength      => 'Authen::NZRealMe::LogonStrength',
+    service_provider        => 'Authen::NZRealMe::ServiceProvider',
+    identity_provider       => 'Authen::NZRealMe::IdentityProvider',
+    xml_signer              => 'Authen::NZRealMe::XMLSig',
+    sp_builder              => 'Authen::NZRealMe::ServiceProvider::Builder',
+    sp_cert_factory         => 'Authen::NZRealMe::ServiceProvider::CertFactory',
+    resolution_request      => 'Authen::NZRealMe::ResolutionRequest',
+    icms_resolution_request => 'Authen::NZRealMe::ICMSResolutionRequest',
+    resolution_response     => 'Authen::NZRealMe::ResolutionResponse',
+    authen_request          => 'Authen::NZRealMe::AuthenRequest',
+    logon_strength          => 'Authen::NZRealMe::LogonStrength',
 );
 
 

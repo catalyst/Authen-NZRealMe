@@ -7,7 +7,6 @@ require XML::LibXML;
 require XML::LibXML::XPathContext;
 require XML::Generator;
 require Crypt::OpenSSL::X509;
-require Data::UUID;
 require HTTP::Response;
 
 use URI::Escape  qw(uri_escape uri_unescape);
@@ -57,10 +56,14 @@ my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512/"
 my $ns_wsa      = [ wsa   => "http://www.w3.org/2005/08/addressing" ];
 my $ns_ec       = [ ec    => "http://www.w3.org/2001/10/xml-exc-c14n#" ];
 my $ns_icms     = [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ];
+my $ns_wsdl     = [ wsdl  => 'http://schemas.xmlsoap.org/wsdl/' ];
+my $ns_soap_12  = [ soap  => 'http://schemas.xmlsoap.org/wsdl/soap12/' ];
+my $ns_wsam     = [ wsam  => 'http://www.w3.org/2007/05/addressing/metadata' ];
 
 my @ivs_namespaces  = ( $ns_xpil, $ns_xnl, $ns_ct, $ns_xal );
 my @avs_namespaces  = ( $ns_xpil, $ns_xal );
-my @icms_namespaces = ( $ns_ds, $ns_saml, $ns_icms, $ns_wsse, $ns_wsu, $ns_wst  );
+my @icms_namespaces = ( $ns_ds, $ns_saml, $ns_icms, $ns_wsse, $ns_wsu, $ns_wst, $ns_soap  );
+my @wsdl_namespaces = ( $ns_wsdl, $ns_soap_12, $ns_wsam );
 
 my %urn_nameid_format = (
     login     => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
@@ -249,8 +252,38 @@ sub _read_metadata_from_file {
 
     my $cache_key = $self->conf_dir . '-' . $self->type;
     $metadata_cache{$cache_key} = \%params;
+
+    my $icms_pathname = $self->_icms_wsdl_pathname;
+
+    if ( $self->{type} eq 'assertion' && -e $icms_pathname ){
+        $self->_parse_icms_wsdl;
+    }
+
+    return \%params;
 }
 
+sub _parse_icms_wsdl {
+    my ($self) = @_;
+
+    my $icms_pathname = $self->_icms_wsdl_pathname;
+    die "No ICMS WSDL file in config directory" unless -e $icms_pathname;
+    my $description = $self->_read_file($icms_pathname);
+    my $dom = XML::LibXML->load_xml( string => $description );
+    my $xpc = XML::LibXML::XPathContext->new();
+    foreach my $ns ( @wsdl_namespaces ) {
+        $xpc->registerNs(@$ns);
+    }
+    my $result = {};
+    foreach my $type ( 'Issue', 'Validate' ){
+        $result->{$type} = {
+            url       => $dom->findvalue('./wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="'.$type.'"]/soap:address/@location'),
+            operation => $dom->findvalue('./wsdl:definitions/wsdl:portType[@name="'.$type.'"]/wsdl:operation/wsdl:input/@wsam:Action'),
+        };
+    }
+
+    my $cache_key = $self->conf_dir . '-' . $self->type . '-icms';
+    $metadata_cache{$cache_key} = $result;
+}
 
 sub _metadata_pathname {
     my $self     = shift;
@@ -264,6 +297,28 @@ sub _metadata_pathname {
     return $conf_dir . '/metadata-' . $type . '-sp.xml';
 }
 
+sub _icms_wsdl_pathname {
+    my $self     = shift;
+    my $conf_dir = shift;
+    my $type     = shift;
+
+    $type //= $self->type;
+
+    $conf_dir ||= $self->conf_dir or die "conf_dir not set";
+
+    return $conf_dir . '/'.$icms_wsdl_filename;
+}
+
+sub icms_method_data {
+    my $self = shift;
+    my $method = shift;
+
+    my $cache_key = $self->conf_dir . '-' . $self->type . '-icms';
+
+    my $methods = $metadata_cache{$cache_key} || $self->_parse_icms_wsdl;
+
+    return $methods->{$method};
+}
 
 sub _xpath_context_dom {
     my($self, $source, @namespaces) = @_;
@@ -415,88 +470,31 @@ sub _resolve_flt {
     my($self, $idp_response, %args) = @_;
 
     my $opaque_token = $idp_response->_icms_token();
-    my $wsdl_urls = $self->_parse_icms_wsdl();
 
-    my $x = XML::Generator->new(
-                escape => 'unescaped',  # So we can insert other document bits usefully
-            );
+    my $request   = Authen::NZRealMe->class_for('icms_resolution_request')->new($self, $opaque_token);
 
-    # The following list of parts will be signed in the request, any with a
-    # 'namespaces' array will have those namespaces treated as InclusiveNamespaces
-    # as detailed in http://www.w3.org/TR/2002/REC-xml-exc-c14n-20020718/#sec-Specification
-    my $signed_parts = {
-        Action    =>  {
-            id          => $self->generate_saml_id('wsa'),
-            namespaces  => ['soap'],
-        },
-        MessageID =>  {
-            id          => $self->generate_saml_id('wsa'),
-            namespaces  => ['soap'],
-        },
-        To        =>  {
-            id          => $self->generate_saml_id('wsa'),
-            namespaces  => ['soap'],
-        },
-        ReplyTo   =>  {
-            id          => $self->generate_saml_id('wsa'),
-            namespaces  => ['soap'],
-        },
-        Timestamp =>  {
-            id          => $self->generate_saml_id('wsa'),
-        },
-        Body      =>  {
-            id          => $self->generate_saml_id('soap'),
-        },
-    };
+    my $method = $self->icms_method_data('Validate');
 
-    my $uuid_gen = new Data::UUID;
+    my $request_data = $request->request_data;
 
-    my $url = $wsdl_urls->{ validate };
-
-    my $soap_request = $x->Envelope($ns_soap,
-        $x->Header($ns_soap,
-            $x->Action( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{Action}->{id}} , 'http://docs.oasis-open.org/ws-sx/ws-trust/200512/RST/Validate'),
-            $x->MessageID( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{MessageID}->{id}} , 'urn:uuid:'.$uuid_gen->create_str()),
-            $x->To( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{To}->{id}} , $url),
-            $x->ReplyTo( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{ReplyTo}->{id}} ,
-                $x->Address( $ns_wsa, 'http://www.w3.org/2005/08/addressing/anonymous'),
-            ),
-            $x->Security([@$ns_wsse, @$ns_wsu], {'soap:mustUnderstand' => 'true'},  # Populated by signing method
-                $x->Timestamp( $ns_wsu, {'wsu:Id' => $signed_parts->{Timestamp}->{id}},
-                    $x->Created ( $ns_wsu, strftime "%FT%TZ", gmtime() ),
-                    $x->Expires ( $ns_wsu, strftime "%FT%TZ", gmtime( time() + 300) ),
-                ),
-            )
-        ),
-        $x->Body($ns_soap, {'wsu:Id' => $signed_parts->{Body}->{id}} ,
-            $x->RequestSecurityToken($ns_wst,
-                $x->RequestType($ns_wst, 'http://docs.oasis-open.org/ws-sx/ws-trust/200512/Validate'),
-                $x->TokenType($ns_wst, 'http://docs.oasis-open.org/wss/oasis-wss-saml-token-profile-1.1#SAMLV2.0'),
-                $x->ValidateTarget($ns_wst, \$opaque_token),
-                $x->AllowCreateFLT($ns_icms),
-            ),
-        ),
-    )."";
-    my @parts = values $signed_parts;
-    $soap_request = $self->_sign_icms_xml($soap_request,\@parts ) . "";
     my $headers = [
         'User-Agent: Authen-NZRealMe/' . ($Authen::NZRealMe::VERSION // '0.0'),
         'Content-Type: text/xml',
-        'SOAPAction: http://docs.oasis-open.org/ws-sx/ws-trust/200512/RST/Validate', #This could come from the WSDL, but I don't expect it to change
-        'Content-Length: ' . length($soap_request),
+        'SOAPAction: ' . $method->{operation},
+        'Content-Length: ' . length($request_data),
     ];
-    my $response = $self->_https_post($url, $headers, $soap_request);
+
+    my $response = $self->_https_post($request->destination_url, $headers, $request_data);
 
     my $content = $response->content;
 
     if ( !$response->is_success ){
-        my $xc = $self->_xpath_context_dom($content, @icms_namespaces);
+        my $xc = $self->_xpath_context_dom($content, $ns_soap, $ns_icms);
         # Grab and output the SOAP error explanation, if present.
         if(my($error) = $xc->findnodes('//soap:Fault')) {
             my $code       = $xc->findvalue('./soap:Code/soap:Value',       $error) || 'Unknown';
             my $string     = $xc->findvalue('./soap:Reason/soap:Text',      $error) || 'Unknown';
-            my $icms_fault = $xc->findvalue('./soap:Detail/icms:ICMSFault', $error) || 'Unknown';
-            die "ICMS error:\n  Fault Code: $code\n  Fault String: $string\n ICMSFault: $icms_fault";
+            die "ICMS error:\n  Fault Code: $code\n  Fault String: $string";
         }
         die "Error resolving FLT\n  Response code:$response->code\n  Message:$response->message";
     }
@@ -509,30 +507,12 @@ sub _resolve_flt {
     $idp_response->set_flt($flt);
 }
 
-sub _parse_icms_wsdl {
-    my ($self) = @_;
-
-    my $description = $self->_read_file($self->{conf_dir}.'/'.$icms_wsdl_filename);
-    my $dom = XML::LibXML->load_xml( string => $description );
-    my $xpc = XML::LibXML::XPathContext->new();
-    foreach my $ns (
-            [ wsdl => 'http://schemas.xmlsoap.org/wsdl/' ],
-            [ soap => 'http://schemas.xmlsoap.org/wsdl/soap12/' ],) {
-        $xpc->registerNs(@$ns);
-    }
-    my $issue_address    = $dom->findvalue('./wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="Issue"]/soap:address/@location');
-    my $validate_address = $dom->findvalue('./wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="Validate"]/soap:address/@location');
-    return { issue    => $issue_address,
-             validate => $validate_address,
-           };
-}
-
 sub _extract_flt {
     my($self, $xml, %args) = @_;
     my $xc = $self->_xpath_context_dom($xml, @icms_namespaces);
     # We have a SAML assertion, make sure it's signed
     my $idp = $self->idp;
-    # ICMS responses use 'wsu:Id's for their ID attribute, and are (for some
+    # ICMS responses use wsu:Id's for their ID attribute, and are (for some
     # bizarre reason) signed with the key the login service uses.
     eval {
         my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
