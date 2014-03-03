@@ -404,7 +404,7 @@ sub resolve_artifact {
     return $response;
 }
 
-sub _sign_iCMS_xml {
+sub _sign_icms_xml {
     my($self, $xml, $target_ids) = @_;
 
     my $signer = $self->_signer('wsu:Id');
@@ -478,7 +478,7 @@ sub _resolve_flt {
         ),
     )."";
     my @parts = values $signed_parts;
-    $soap_request = $self->_sign_iCMS_xml($soap_request,\@parts ) . "";
+    $soap_request = $self->_sign_icms_xml($soap_request,\@parts ) . "";
     my $headers = [
         'User-Agent: Authen-NZRealMe/' . ($Authen::NZRealMe::VERSION // '0.0'),
         'Content-Type: text/xml',
