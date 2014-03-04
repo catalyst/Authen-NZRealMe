@@ -131,7 +131,7 @@ sub _sign_xml {
     my($self, $xml, $target_ids) = @_;
 
     my $signer = $self->{signer};
-    return $signer->sign_using_signedinfo($xml, $target_ids);
+    return $signer->sign_multiple_targets($xml, $target_ids);
 }
 
 sub generate_saml_id {

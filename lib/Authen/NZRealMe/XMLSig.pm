@@ -88,7 +88,7 @@ sub sign {
     return $doc->toString;
 }
 
-sub sign_using_signedinfo {
+sub sign_multiple_targets {
     my($self, $xml, $target_ids) = @_;
     my $doc      = $self->_xml_to_dom($xml);
 
@@ -96,7 +96,7 @@ sub sign_using_signedinfo {
 
     my $x = XML::Generator->new();
 
-    # Generate the the reference blocks for each target
+    # Generate the reference blocks for each target
     my $signedinfo;
     foreach my $target( @$target_ids ) {
         $signedinfo .= $self->_generate_reference_block($doc, $target->{id}, $target->{namespaces});
@@ -531,7 +531,7 @@ Takes an XML document and an optional element ID value and returns a string of
 XML with a digital signature added.  The XML document can be provided either as
 a string or as an XML::LibXML DOM object.
 
-=head2 sign_using_signedinfo ( $xml, $target_ids )
+=head2 sign_multiple_targets ( $xml, $target_ids )
 
 Takes an XML document and an array of hashes representing the ID and
 InclusiveNamespaces of any DOM elements to sign, identified by an ID attribute
