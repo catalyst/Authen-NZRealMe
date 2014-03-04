@@ -459,13 +459,6 @@ sub resolve_artifact {
     return $response;
 }
 
-sub _sign_icms_xml {
-    my($self, $xml, $target_ids) = @_;
-
-    my $signer = $self->_signer('wsu:Id');
-    return $signer->sign_using_signedinfo($xml, $target_ids);
-}
-
 sub _resolve_flt {
     my($self, $idp_response, %args) = @_;
 
