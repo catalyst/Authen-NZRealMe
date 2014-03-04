@@ -26,6 +26,8 @@ require XML::Generator;
 require Crypt::OpenSSL::RSA;
 require Crypt::OpenSSL::X509;
 
+use constant URI => 1;
+
 my $ns_ds      = [ ds     => 'http://www.w3.org/2000/09/xmldsig#'   ];
 my $ns_exc14n  = [ exc14n => 'http://www.w3.org/2001/10/xml-exc-c14n#' ];
 my $ns_soap    = [ soap   => 'http://www.w3.org/2003/05/soap-envelope' ];
@@ -33,14 +35,16 @@ my $ns_wsu     = [ wsu   => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401
 my $ns_wsse    = [ wsse  => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' ];
 
 
-my $uri_rsa_sha1_sig = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
-my $uri_env_sig      = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
-my $uri_c14n         = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
-my $uri_ec14n        = 'http://www.w3.org/2001/10/xml-exc-c14n';
-my $uri_digest_sha1  = 'http://www.w3.org/2000/09/xmldsig#sha1';
-my $uri_digest_sha256= 'http://www.w3.org/2001/04/xmlenc#sha256';
+my $uri_rsa_sha1_sig    = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
+my $uri_env_sig         = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
+my $uri_c14n            = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
+my $uri_ec14n           = 'http://www.w3.org/2001/10/xml-exc-c14n';
+my $uri_digest_sha1     = 'http://www.w3.org/2000/09/xmldsig#sha1';
+my $uri_digest_sha256   = 'http://www.w3.org/2001/04/xmlenc#sha256';
+my $uri_key_encoding    = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
+my $uri_key_valuetype   = 'http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#ThumbprintSHA1';
 
-my $digest_uris = {
+my $digest_method_from_uri = {
     $uri_digest_sha1   => "_xml_digest_sha1",
     $uri_digest_sha256 => "_xml_digest_sha256",
 };
@@ -98,23 +102,21 @@ sub sign_using_signedinfo {
         $signedinfo .= $self->_generate_reference_block($doc, $target->{id}, $target->{namespaces});
     }
     $signedinfo = $x->SignedInfo( $ns_ds,
-        $x->CanonicalizationMethod( $ns_ds, { Algorithm => 'http://www.w3.org/2001/10/xml-exc-c14n#' }),
-        $x->SignatureMethod( $ns_ds, { Algorithm => 'http://www.w3.org/2000/09/xmldsig#rsa-sha1' } ),
+        $x->CanonicalizationMethod( $ns_ds, { Algorithm => $ns_exc14n->[URI] }),
+        $x->SignatureMethod( $ns_ds, { Algorithm => $uri_rsa_sha1_sig } ),
         $signedinfo,
-    )."";
+    ).'';
 
     # Generate SignatureValue for whole SignedInfo block
-    my $canonical_signedinfo = $self->_canonicalize('http://www.w3.org/2001/10/xml-exc-c14n#', $signedinfo);
+    my $canonical_signedinfo = $self->_canonicalize( $ns_exc14n->[URI], $signedinfo);
     my $signature = $self->rsa_signature($canonical_signedinfo, '');
 
     # Generate and add key info block
     my $x509 = Crypt::OpenSSL::X509->new_from_string($self->pub_cert_text);
     my $keyinfo_block = $x->KeyInfo( $ns_ds, { Id => 'KI-'.$self->_key_fingerprint($x509).'1' },
         $x->SecurityTokenReference( $ns_wsse, { Id => 'STR-'.$self->_key_fingerprint($x509).'2' },
-            $x->KeyIdentifier( $ns_wsse,
-                { EncodingType => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary",
-                    ValueType    => "http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#ThumbprintSHA1" },
-                $self->_hex2b64($x509->fingerprint_sha1()), # For some insane reason RealMe uses the raw fingerprint bytes b64encoded, rather than a normal fingerprint
+            $x->KeyIdentifier( $ns_wsse, { EncodingType => $uri_key_encoding, ValueType => $uri_key_valuetype },
+                $self->_hex_to_b64($x509->fingerprint_sha1()), # RealMe uses the raw fingerprint bytes b64encoded, rather than a plain fingerprint
             ),
         ),
     ).'';
@@ -124,7 +126,7 @@ sub sign_using_signedinfo {
         $signedinfo,
         $x->SignatureValue( $ns_ds, $signature ),
         $keyinfo_block,
-    )."";
+    ).'';
 
     # Insert whole block as the last element in the soap:Header section
     my $sig_dom = $self->_xml_to_dom($signature_block);
@@ -144,7 +146,7 @@ sub _key_fingerprint {
     return $fingerprint;
 }
 
-sub _hex2b64 {
+sub _hex_to_b64 {
     shift;
     my $hex = shift;
     $hex =~ s/://g;
@@ -157,9 +159,7 @@ sub _generate_reference_block {
     my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
 
     my $digest = $self->_generate_digest($doc, $target_id, $inclusive_namespaces);
-    my $x = XML::Generator->new(
-#         pretty => 2,
-    );
+    my $x = XML::Generator->new();
 
     my $prefix_hash = {};
     $prefix_hash = { PrefixList => join( ' ', @$inclusive_namespaces) } if ($inclusive_namespaces);
@@ -167,10 +167,10 @@ sub _generate_reference_block {
     my $block = $x->Reference( $ns_ds, { URI => "#$target_id" },
         $x->Transforms( $ns_ds,
             $x->Transform( $ns_ds, { Algorithm => $uri_ec14n.'#' },
-                $x->InclusiveNamespaces( [ ec => "http://www.w3.org/2001/10/xml-exc-c14n#" ], $prefix_hash ),  # Hopefully these won't be necessary
+                $x->InclusiveNamespaces( $ns_exc14n, $prefix_hash ),
             ),
         ),
-        $x->DigestMethod( $ns_ds, { Algorithm => "http://www.w3.org/2001/04/xmlenc#sha256" } ),
+        $x->DigestMethod( $ns_ds, { Algorithm => $uri_digest_sha256 } ),
         $x->DigestValue( $ns_ds, $digest ),
     ) . '';
     return $block."\n";
@@ -181,7 +181,10 @@ sub _generate_digest {
     my $id_attr  = $self->id_attr;
     my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
             or croak "Can't find element with ${id_attr}='${target_id}'";
-    return $self->_xml_digest_sha256($target, $inclusive_namespaces);
+
+    my $c14n_frag = $self->_ec14n_xml($target, WITHOUT_COMMENTS, $inclusive_namespaces);
+
+    return $self->_xml_digest_sha256($c14n_frag, $inclusive_namespaces);
 }
 
 
@@ -238,16 +241,15 @@ sub _ec14n_xml {
 
 
 sub _xml_digest_sha1 {
-    my($self, $frag, $inclusive_namespaces) = @_;
+    my($self, $frag_xml) = @_;
 
-    my $frag_xml   = $self->_ec14n_xml($frag, WITHOUT_COMMENTS, $inclusive_namespaces);
     my $bin_digest = sha1($frag_xml);
     return encode_base64($bin_digest, '');
 }
 
 sub _xml_digest_sha256 {
-    my($self, $frag, $inclusive_namespaces) = @_;
-    my $frag_xml   = $self->_ec14n_xml($frag, WITHOUT_COMMENTS, $inclusive_namespaces);
+    my($self, $frag_xml) = @_;
+
     my $bin_digest = sha256($frag_xml);
     return encode_base64($bin_digest, '');
 }
@@ -265,7 +267,8 @@ sub _xml_to_dom {
 sub _make_signature_xml {
     my($self, $frag, $id) = @_;
 
-    my $digest     = $self->_xml_digest_sha1($frag);
+    my $c14n_frag  = $self->_ec14n_xml($frag);
+    my $digest     = $self->_xml_digest_sha1($c14n_frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
     my $sig_value  = $self->rsa_signature($self->_ec14n_xml($sig_info));
 
@@ -341,8 +344,11 @@ sub verify {
             my($frag)  = $xc->findnodes("//*[\@${id_attr}='$reference->{ref_id}']")
                 or croak "Can't find element with ${id_attr}='$reference->{ref_id}'";
 
-            my $digest_function = $digest_uris->{$reference->{digest_method}};
-            my $digest = $self->$digest_function($frag, $reference->{inclusive_namespaces});
+            my $digest_function = $digest_method_from_uri->{$reference->{digest_method}};
+
+            my $c14n_frag = $self->_ec14n_xml( $frag, WITHOUT_COMMENTS, $reference->{inclusive_namespaces} );
+
+            my $digest = $self->$digest_function($c14n_frag);
 
             if($digest ne $reference->{digest}) {
                 die "Digest of signed element '$reference->{ref_id}' "
@@ -388,7 +394,7 @@ sub _parse_signature {
             $ref
         ) or die "Unable to determine Signature Reference DigestMethod for $ref_uri";
         die "Unsupported Signature DigestMethod: '$digest_method' for $ref_uri"
-            unless $digest_uris->{$digest_method};
+            unless $digest_method_from_uri->{$digest_method};
         $ref_data->{digest_method} = $digest_method;
 
         my($digest) = map { $_->to_literal } $xc->findnodes(
