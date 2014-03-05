@@ -196,7 +196,7 @@ See L<Authen::NZRealMe> for documentation index.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2010-2013 Enrolment Services, New Zealand Electoral Commission
+Copyright (c) 2010-2014 Enrolment Services, New Zealand Electoral Commission
 
 Written by Haydn Newport E<lt>haydn@catalyst.net.nzE<gt>
 
