@@ -1,41 +1,6 @@
-libauthen-nzigovt-perl (1.06-1) stable; urgency=low
+libauthen-nzrealme-perl (1.08-1) stable; urgency=low
 
-  * new upstream release
+  * new package name following re-branding of "igovt" to "RealMe"
+  * adds initial support for "assertion" service (no iCMS yet)
 
- -- Grant McLean <grant@catalyst.net.nz>  Fri, 25 Jul 2013 14:15:08 +1200
-
-libauthen-nzigovt-perl (1.05-1) stable; urgency=low
-
-  * new upstream release
-
- -- Grant McLean <grant@catalyst.net.nz>  Fri, 27 Apr 2012 12:22:43 +1200
-
-libauthen-nzigovt-perl (1.04-1) stable; urgency=low
-
-  * new upstream release
-
- -- Grant McLean <grant@catalyst.net.nz>  Wed, 17 Aug 2011 21:22:42 +1200
-
-libauthen-nzigovt-perl (1.03-1) stable; urgency=low
-
-  * new upstream release
-
- -- Grant McLean <grant@catalyst.net.nz>  Wed, 06 Jul 2011 13:51:34 +1200
-
-libauthen-nzigovt-perl (1.02-1) unstable; urgency=low
-
-  * new upstream release
-
- -- Grant McLean <grant@catalyst.net.nz>  Mon, 20 Jun 2011 09:54:25 +1200
-
-libauthen-nzigovt-perl (1.00-1) unstable; urgency=low
-
-  * new upstream release
-
- -- Grant McLean <grant@catalyst.net.nz>  Wed, 09 Mar 2011 10:51:41 +1300
-
-libauthen-nzigovt-perl (0.01-1) unstable; urgency=low
-
-  * Initial Release.
-
- -- Grant McLean <grant@catalyst.net.nz>  Mon, 14 Feb 2011 13:40:40 +1300
+ -- Grant McLean <grant@catalyst.net.nz>  Tue, 06 Aug 2013 09:47:11 +1200
