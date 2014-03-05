@@ -38,6 +38,14 @@ sub entity_id             { shift->{entity_id};              }
 sub single_signon_location{ shift->{single_signon_location}; }
 sub signing_cert_pem_data { shift->{signing_cert_pem_data};  }
 
+sub login_cert_pem_data {
+    my $self = shift;
+    my $type = 'login';
+    my $cache_key = $self->conf_dir . '-' . $type;
+    my $params = $metadata_cache{$cache_key} || $self->_read_metadata_from_file($type);
+    return $params->{signing_cert_pem_data};
+}
+
 
 sub artifact_resolution_location {
     my($self, $index) = @_;
@@ -76,9 +84,10 @@ sub _load_metadata {
 
 
 sub _read_metadata_from_file {
-    my $self = shift;
+    my ($self, $type) = @_;
+    $type //= $self->type;
 
-    my $metadata_file = $self->_metadata_pathname;
+    my $metadata_file = $self->_metadata_pathname($type);
     die "File does not exist: $metadata_file\n" unless -e $metadata_file;
 
     my $parser = XML::LibXML->new();
@@ -118,16 +127,16 @@ sub _read_metadata_from_file {
     }
     $params{ars} = \%ars;
 
-    my $cache_key = $self->conf_dir . '-' . $self->type;
+    my $cache_key = $self->conf_dir . '-' . $type;
     $metadata_cache{$cache_key} = \%params;
 }
 
 
 sub _metadata_pathname {
-    my $self = shift;
-
+    my ($self, $type) = @_;
+    $type //= $self->type;
     my $conf_dir = $self->conf_dir or die "conf_dir not set";
-    return $conf_dir . '/metadata-' . $self->type . '-idp.xml';
+    return $conf_dir . '/metadata-' . $type . '-idp.xml';
 }
 
 
@@ -188,6 +197,8 @@ metadata file.
 =head2 signing_cert_pem_data
 
 Accessor for the signing certificate (X509 format) text from the metadata file.
+If supplied with a service type, it will return the certificate appropriate to
+that type.
 
 =head2 artifact_resolution_location
 

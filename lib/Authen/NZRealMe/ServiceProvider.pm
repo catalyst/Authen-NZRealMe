@@ -37,20 +37,33 @@ my $signing_cert_filename = 'sp-sign-crt.pem';
 my $signing_key_filename  = 'sp-sign-key.pem';
 my $ssl_cert_filename     = 'sp-ssl-crt.pem';
 my $ssl_key_filename      = 'sp-ssl-key.pem';
+my $icms_wsdl_filename    = 'icms-description.xml';
 
 
-my $ns_md       = [ md => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
-my $ns_ds       = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
+my $ns_md       = [ md    => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
+my $ns_ds       = [ ds    => 'http://www.w3.org/2000/09/xmldsig#'   ];
 my $ns_saml     = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
 my $ns_samlp    = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
 my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
-my $ns_xpil     = [ xpil => "urn:oasis:names:tc:ciq:xpil:3" ];
-my $ns_xal      = [ xal => "urn:oasis:names:tc:ciq:xal:3"   ];
+my $ns_xpil     = [ xpil  => "urn:oasis:names:tc:ciq:xpil:3" ];
+my $ns_xal      = [ xal   => "urn:oasis:names:tc:ciq:xal:3"   ];
 my $ns_xnl      = [ xnl   => "urn:oasis:names:tc:ciq:xnl:3" ];
 my $ns_ct       = [ ct    => "urn:oasis:names:tc:ciq:ct:3"  ];
+my $ns_soap     = [ soap  => "http://www.w3.org/2003/05/soap-envelope" ];
+my $ns_wsse     = [ wsse  => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" ];
+my $ns_wsu      = [ wsu   => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" ];
+my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512/" ];
+my $ns_wsa      = [ wsa   => "http://www.w3.org/2005/08/addressing" ];
+my $ns_ec       = [ ec    => "http://www.w3.org/2001/10/xml-exc-c14n#" ];
+my $ns_icms     = [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ];
+my $ns_wsdl     = [ wsdl  => 'http://schemas.xmlsoap.org/wsdl/' ];
+my $ns_soap_12  = [ soap  => 'http://schemas.xmlsoap.org/wsdl/soap12/' ];
+my $ns_wsam     = [ wsam  => 'http://www.w3.org/2007/05/addressing/metadata' ];
 
-my @ivs_namespaces = ( $ns_xpil, $ns_xnl, $ns_ct, $ns_xal );
-my @avs_namespaces = ( $ns_xpil, $ns_xal );
+my @ivs_namespaces  = ( $ns_xpil, $ns_xnl, $ns_ct, $ns_xal );
+my @avs_namespaces  = ( $ns_xpil, $ns_xal );
+my @icms_namespaces = ( $ns_ds, $ns_saml, $ns_icms, $ns_wsse, $ns_wsu, $ns_wst, $ns_soap  );
+my @wsdl_namespaces = ( $ns_wsdl, $ns_soap_12, $ns_wsam );
 
 my %urn_nameid_format = (
     login     => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
@@ -239,8 +252,38 @@ sub _read_metadata_from_file {
 
     my $cache_key = $self->conf_dir . '-' . $self->type;
     $metadata_cache{$cache_key} = \%params;
+
+    my $icms_pathname = $self->_icms_wsdl_pathname;
+
+    if ( $self->{type} eq 'assertion' && -e $icms_pathname ){
+        $self->_parse_icms_wsdl;
+    }
+
+    return \%params;
 }
 
+sub _parse_icms_wsdl {
+    my ($self) = @_;
+
+    my $icms_pathname = $self->_icms_wsdl_pathname;
+    die "No ICMS WSDL file in config directory" unless -e $icms_pathname;
+    my $description = $self->_read_file($icms_pathname);
+    my $dom = XML::LibXML->load_xml( string => $description );
+    my $xpc = XML::LibXML::XPathContext->new();
+    foreach my $ns ( @wsdl_namespaces ) {
+        $xpc->registerNs(@$ns);
+    }
+    my $result = {};
+    foreach my $type ( 'Issue', 'Validate' ){
+        $result->{$type} = {
+            url       => $dom->findvalue('./wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="'.$type.'"]/soap:address/@location'),
+            operation => $dom->findvalue('./wsdl:definitions/wsdl:portType[@name="'.$type.'"]/wsdl:operation/wsdl:input/@wsam:Action'),
+        };
+    }
+
+    my $cache_key = $self->conf_dir . '-' . $self->type . '-icms';
+    $metadata_cache{$cache_key} = $result;
+}
 
 sub _metadata_pathname {
     my $self     = shift;
@@ -254,6 +297,28 @@ sub _metadata_pathname {
     return $conf_dir . '/metadata-' . $type . '-sp.xml';
 }
 
+sub _icms_wsdl_pathname {
+    my $self     = shift;
+    my $conf_dir = shift;
+    my $type     = shift;
+
+    $type //= $self->type;
+
+    $conf_dir ||= $self->conf_dir or die "conf_dir not set";
+
+    return $conf_dir . '/'.$icms_wsdl_filename;
+}
+
+sub icms_method_data {
+    my $self = shift;
+    my $method = shift;
+
+    my $cache_key = $self->conf_dir . '-' . $self->type . '-icms';
+
+    my $methods = $metadata_cache{$cache_key} || $self->_parse_icms_wsdl;
+
+    return $methods->{$method};
+}
 
 sub _xpath_context_dom {
     my($self, $source, @namespaces) = @_;
@@ -310,7 +375,7 @@ sub _sign_xml {
 
     my $signer = $self->_signer();
 
-    return $self->_signer->sign($xml, $target_id);
+    return $signer->sign($xml, $target_id);
 }
 
 
@@ -328,13 +393,17 @@ sub sign_query_string {
 
 
 sub _signer {
-    my($self) = @_;
+    my($self, $id_attr) = @_;
 
     my $key_path = $self->signing_key_pathname
         or die "No path to signing key file";
 
+    my %options = (pub_cert_file => $self->signing_cert_pathname,key_file => $key_path);
+    $options{id_attr} = $id_attr if $id_attr;
+
     return Authen::NZRealMe->class_for('xml_signer')->new(
         key_file => $key_path,
+        %options
     );
 }
 
@@ -384,21 +453,72 @@ sub resolve_artifact {
     my $response = $self->_verify_assertion($content, %args);
 
     if($self->type eq 'assertion'  and  $args{resolve_flt}) {
-        $self->_resolve_flt($response);
+         $self->_resolve_flt($response, %args);
     }
 
     return $response;
 }
 
-
 sub _resolve_flt {
-    my($self, $response) = @_;
+    my($self, $idp_response, %args) = @_;
 
-    my $opaque_token = $response->_icms_token();
-    warn "Opaque token:\n$opaque_token\n";
-    die "resolve_flt is not implemented";
+    my $opaque_token = $idp_response->_icms_token();
+
+    my $request   = Authen::NZRealMe->class_for('icms_resolution_request')->new($self, $opaque_token);
+
+    my $method = $self->icms_method_data('Validate');
+
+    my $request_data = $request->request_data;
+
+    my $headers = [
+        'User-Agent: Authen-NZRealMe/' . ($Authen::NZRealMe::VERSION // '0.0'),
+        'Content-Type: text/xml',
+        'SOAPAction: ' . $method->{operation},
+        'Content-Length: ' . length($request_data),
+    ];
+
+    my $response = $self->_https_post($request->destination_url, $headers, $request_data);
+
+    my $content = $response->content;
+
+    if ( !$response->is_success ){
+        my $xc = $self->_xpath_context_dom($content, $ns_soap, $ns_icms);
+        # Grab and output the SOAP error explanation, if present.
+        if(my($error) = $xc->findnodes('//soap:Fault')) {
+            my $code       = $xc->findvalue('./soap:Code/soap:Value',       $error) || 'Unknown';
+            my $string     = $xc->findvalue('./soap:Reason/soap:Text',      $error) || 'Unknown';
+            die "ICMS error:\n  Fault Code: $code\n  Fault String: $string";
+        }
+        die "Error resolving FLT\n  Response code:$response->code\n  Message:$response->message";
+    }
+
+    if($args{_to_file_}) {
+            $self->_write_file($args{_to_file_}, $content) if $response->is_success;
+    }
+
+    my $flt = $self->_extract_flt($content);
+    $idp_response->set_flt($flt);
 }
 
+sub _extract_flt {
+    my($self, $xml, %args) = @_;
+    my $xc = $self->_xpath_context_dom($xml, @icms_namespaces);
+    # We have a SAML assertion, make sure it's signed
+    my $idp = $self->idp;
+    # ICMS responses use wsu:Id's for their ID attribute, and are (for some
+    # bizarre reason) signed with the key the login service uses.
+    eval {
+        my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
+            pub_cert_text => $idp->login_cert_pem_data(),
+            id_attr       => 'wsu:Id',
+        );
+        $verifier->verify($xml);
+    };
+    if($@) {
+        die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
+    }
+    return $xc->findvalue(q{/soap:Envelope/soap:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID});
+}
 
 sub _https_post {
     my($self, $url, $headers, $body) = @_;
@@ -422,10 +542,10 @@ sub _https_post {
     my $resp;
     my $retcode = $curl->perform;
     if($retcode == 0) {
+        $resp_head =~ s/\A(?:HTTP\/1\.1 100 Continue)?[\r\n]*//; # Remove any '100' responses and/or leading newlines
         my($status, @head_lines) = split(/\r?\n/, $resp_head);
         my($protocol, $code, $message) = split /\s+/, $status, 3;
         my $headers = [ map { split /:\s+/, $_, 2 } @head_lines];
-
         $resp = HTTP::Response->new($code, $message, $headers, $resp_body);
     }
     else {
@@ -480,7 +600,7 @@ sub _verify_assertion {
 
     my $idp_entity_id = $idp->entity_id;
     my $from_sp = $xc->findvalue('./saml:NameID/@NameQualifier', $subject) || '';
-    die "SAML assertion created by '$from_sp', expected '$idp_entity_id'\n$xml\n"
+    die "SAML assertion created by '$from_sp', expected '$idp_entity_id'. Assertion follows:\n$xml\n"
         if $from_sp ne $idp_entity_id;
 
 
