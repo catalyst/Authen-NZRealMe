@@ -232,6 +232,8 @@ sub _c14n_xml {
 sub _ec14n_xml {
     my($self, $frag, $comments, $inclusive_namespaces) = @_;
 
+    $inclusive_namespaces //= [];
+
     if(not ref $frag) {   # convert XML string to a DOM node
         $frag = $self->_xml_to_dom($frag);
     }
