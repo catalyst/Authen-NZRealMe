@@ -1,3 +1,9 @@
+libauthen-nzrealme-perl (1.09-1) precise; urgency=low
+
+  * initial (pre)release with iCMS support
+
+ -- Grant McLean <grant@putnam.wgtn.cat-it.co.nz>  Wed, 05 Mar 2014 15:42:28 +1300
+
 libauthen-nzrealme-perl (1.08-1) stable; urgency=low
 
   * new package name following re-branding of "igovt" to "RealMe"
