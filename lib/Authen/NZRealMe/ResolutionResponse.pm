@@ -132,7 +132,7 @@ sub as_string {
         place_of_birth country_of_birth
     );
     if(@i_attr) {
-        push @out, "Asserted Identity Atttributes";
+        push @out, "Asserted Identity Attributes";
         foreach my $key (@i_attr) {
             push @out, "    $key: " . $self->{$key};
         }
@@ -143,7 +143,7 @@ sub as_string {
         address_town_city address_postcode
     );
     if(@a_attr) {
-        push @out, "Asserted Address Atttributes";
+        push @out, "Asserted Address Attributes";
         foreach my $key (@a_attr) {
             push @out, "    $key: " . $self->{$key};
         }
