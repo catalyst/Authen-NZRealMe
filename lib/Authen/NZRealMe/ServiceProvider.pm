@@ -452,8 +452,10 @@ sub resolve_artifact {
 
     my $response = $self->_verify_assertion($content, %args);
 
-    if($self->type eq 'assertion'  and  $args{resolve_flt}) {
-         $self->_resolve_flt($response, %args);
+    if($response->is_success) {
+        if($self->type eq 'assertion'  and  $args{resolve_flt}) {
+             $self->_resolve_flt($response, %args);
+        }
     }
 
     return $response;
