@@ -1,3 +1,9 @@
+libauthen-nzrealme-perl (1.10-1) precise; urgency=low
+
+  * don't attempt to resolve the opaque token to an FLT on error responses
+
+ -- Grant McLean <grant@putnam.wgtn.cat-it.co.nz>  Thu, 10 Apr 2014 16:26:29 +1200
+
 libauthen-nzrealme-perl (1.09-1) precise; urgency=low
 
   * initial (pre)release with iCMS support

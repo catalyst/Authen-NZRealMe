@@ -2,6 +2,15 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.10      2014-04-10 16:34:08 Pacific/Auckland
+    - don't attempt to resolve the opaque token to an FLT on error responses
+
+1.09      2014-03-05 15:42:28 Pacific/Auckland
+    - initial (pre)release with iCMS support
+
+1.08      2013-11-29 16:43:06 Pacific/Auckland
+    - initial (pre)release with support for assertion service (no iCMS yet)
+
 1.07      2013-08-06 09:47:11 Pacific/Auckland
     - switch dependency from Digest::SHA1 to Digest::SHA
 
