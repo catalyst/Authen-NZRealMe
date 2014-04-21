@@ -309,7 +309,7 @@ sub _icms_wsdl_pathname {
     return $conf_dir . '/'.$icms_wsdl_filename;
 }
 
-sub icms_method_data {
+sub _icms_method_data {
     my $self = shift;
     my $method = shift;
 
@@ -468,7 +468,7 @@ sub _resolve_flt {
 
     my $request   = Authen::NZRealMe->class_for('icms_resolution_request')->new($self, $opaque_token);
 
-    my $method = $self->icms_method_data('Validate');
+    my $method = $self->_icms_method_data('Validate');
 
     my $request_data = $request->request_data;
 
