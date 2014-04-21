@@ -256,6 +256,11 @@ The following named parameters are recognised:
   relay_state      short string  (default: none)
   auth_strength    see below     (default: 'low')
 
+=head2 service_type
+
+Accessor for the type of service ("login" or "assertion") this request is
+intended for.
+
 =head2 request_id
 
 Accessor for the generated unique ID for this request.

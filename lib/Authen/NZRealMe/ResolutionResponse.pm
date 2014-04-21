@@ -190,6 +190,12 @@ C<resolve_artifact> method on the service provider object.
 The raw XML response from the IdP.  Useful for logging and diagnostics.
 
 
+=head2 service_type
+
+Accessor for the type of service ("login" or "assertion") this response
+originated from.
+
+
 =head2 status_urn
 
 The 'StatusCode' 'Value' (most specific if more than one) in the response from
@@ -240,6 +246,12 @@ has not been associated with this service provider (agency web site).
 This situation will only occur if the original authentication request specified
 a false value for the C<allow_create> option.  Agency sites which use a
 separate flow for the initial sign-up process will need to handle this error.
+
+
+=head2 as_string
+
+Returns a string listing all the attributes from the assertion (including the
+FLT if requested).  This is useful for logging and debiugging purposes.
 
 
 =head1 RESPONSE ATTRIBUTE METHODS

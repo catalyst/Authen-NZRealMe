@@ -181,6 +181,10 @@ on the service provider object.
 The C<conf_dir> parameter B<must> be provided.  It specifies the full pathname
 of the directory containing the IdP metadata file.
 
+=head2 type
+
+Accessor for the type of service ("login" or "assertion") this IdP provides.
+
 =head2 conf_dir
 
 Accessor for the C<conf_dir> parameter passed in to the constructor.
@@ -199,6 +203,12 @@ metadata file.
 Accessor for the signing certificate (X509 format) text from the metadata file.
 If supplied with a service type, it will return the certificate appropriate to
 that type.
+
+=head2 login_cert_pem_data
+
+Accessor for the signing certificate (X509 format) text from the metadata file
+of the login service.  This is used when resolving the opaque token from the
+identity assertion through the iCMS service.
 
 =head2 artifact_resolution_location
 
