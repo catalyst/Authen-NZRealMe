@@ -1,7 +1,7 @@
 <EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
                   xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
                   validUntil="2014-08-15T06:22:16Z"
-                  entityID="https://www.example.govt.nz/app/sample-login">
+                  entityID="https://www.example.govt.nz/app/sample-identity">
   <SPSSODescriptor WantAssertionsSigned="true"
                    AuthnRequestsSigned="true"
                    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
@@ -33,20 +33,21 @@ eIJDW3VGxfgc
         </ds:X509Data>
       </ds:KeyInfo>
     </KeyDescriptor>
-    <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:persistent</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:transient</NameIDFormat>
+    <NameIDFormat>urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified</NameIDFormat>
     <AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Artifact"
                               index="0"
                               isDefault="true"
-                              Location="https://www.example.govt.nz/app/sample/login-acs" />
+                              Location="https://www.example.govt.nz/app/sample/identity-acs" />
   </SPSSODescriptor>
   <Organization>
-    <OrganizationName xml:lang="en-us">Department of Examples (login)</OrganizationName>
-    <OrganizationDisplayName xml:lang="en-us">Department of Examples (login)</OrganizationDisplayName>
+    <OrganizationName xml:lang="en-us">Department of Examples (identity)</OrganizationName>
+    <OrganizationDisplayName xml:lang="en-us">Department of Examples (identity)</OrganizationDisplayName>
     <OrganizationURL xml:lang="en-us">https://www.example.govt.nz/</OrganizationURL>
   </Organization>
   <ContactPerson contactType="technical">
-    <Company>Department of Examples Login Services</Company>
-    <GivenName>Joseph</GivenName>
-    <SurName>Bloggs</SurName>
+    <Company>Department of Examples Identity Services</Company>
+    <GivenName>James</GivenName>
+    <SurName>Briggs</SurName>
   </ContactPerson>
 </EntityDescriptor>
