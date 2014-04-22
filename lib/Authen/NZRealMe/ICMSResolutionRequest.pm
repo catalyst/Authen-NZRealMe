@@ -33,7 +33,8 @@ sub new {
         method_data  => $sp->_icms_method_data( 'Validate' ),
     }, $class;
 
-    die "The ICMS WSDL file has not been parsed or contains no data." unless $self->method_data;
+    die "The ICMS WSDL file has not been parsed or contains no data."
+        unless $self->_method_data;
 
     return $self->_init($sp);
 }
