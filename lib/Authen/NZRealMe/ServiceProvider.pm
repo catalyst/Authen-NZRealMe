@@ -145,7 +145,7 @@ sub idp {
 sub generate_saml_id {
     my($self, $type) = @_;
     return ('a'..'f')[rand(6)]  # id string must start with a letter
-           . md5_hex( join(',', "$self", $type, time(), rand(), $$) );
+           . md5_hex( join(',', "$self", $type, caller(), time(), rand(), $$) );
 }
 
 

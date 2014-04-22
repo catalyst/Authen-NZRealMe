@@ -30,19 +30,20 @@ sub new {
     my $self = bless {
         icms_token   => $icms_token,
         signer       => $sp->_signer('wsu:Id'),
-        method_data  => $sp->icms_method_data( 'Validate' ),
+        method_data  => $sp->_icms_method_data( 'Validate' ),
     }, $class;
 
     die "The ICMS WSDL file has not been parsed or contains no data." unless $self->method_data;
 
-    return $self->_init();
+    return $self->_init($sp);
 }
 
 
 sub _init {
     my $self = shift;
+    my $sp   = shift;
 
-    $self->_generate_flt_resolve_doc();
+    $self->_generate_flt_resolve_doc($sp);
 
     return $self;
 }
@@ -57,32 +58,33 @@ sub signer          { shift->{signer};          }
 
 sub _generate_flt_resolve_doc {
     my $self = shift;
+    my $sp   = shift;
 
     # The following list of parts will be signed in the request, any with a
     # 'namespaces' array will have those namespaces treated as InclusiveNamespaces
     # as detailed in http://www.w3.org/TR/2002/REC-xml-exc-c14n-20020718/#sec-Specification
     my $signed_parts = {
         Action    =>  {
-            id          => $self->generate_saml_id('wsa'),
+            id          => $sp->generate_saml_id('wsa:Action'),
             namespaces  => ['soap'],
         },
         MessageID =>  {
-            id          => $self->generate_saml_id('wsa'),
+            id          => $sp->generate_saml_id('wsa:MessageID'),
             namespaces  => ['soap'],
         },
         To        =>  {
-            id          => $self->generate_saml_id('wsa'),
+            id          => $sp->generate_saml_id('wsa:To'),
             namespaces  => ['soap'],
         },
         ReplyTo   =>  {
-            id          => $self->generate_saml_id('wsa'),
+            id          => $sp->generate_saml_id('wsa:ReplyTo'),
             namespaces  => ['soap'],
         },
         Timestamp =>  {
-            id          => $self->generate_saml_id('wsa'),
+            id          => $sp->generate_saml_id('wsa:Timestamp'),
         },
         Body      =>  {
-            id          => $self->generate_saml_id('soap'),
+            id          => $sp->generate_saml_id('soap:Body'),
         },
     };
 
@@ -132,12 +134,6 @@ sub _sign_xml {
 
     my $signer = $self->{signer};
     return $signer->sign_multiple_targets($xml, $target_ids);
-}
-
-sub generate_saml_id {
-    my($self, $type) = @_;
-    return ('a'..'f')[rand(6)]  # id string must start with a letter
-           . md5_hex( join(',', "$self", $type, time(), rand(), $$) );
 }
 
 1;
