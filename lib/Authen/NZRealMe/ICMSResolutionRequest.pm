@@ -52,8 +52,8 @@ sub icms_token      { shift->{icms_token};      }
 sub request_id      { shift->{request_id};      }
 sub destination_url { shift->{destination_url}; }
 sub request_data    { shift->{request_data};    }
-sub method_data     { shift->{method_data};     }
-sub signer          { shift->{signer};          }
+sub _method_data    { shift->{method_data};     }
+sub _signer         { shift->{signer};          }
 
 
 sub _generate_flt_resolve_doc {
@@ -91,7 +91,7 @@ sub _generate_flt_resolve_doc {
     my $uuid_gen = new Data::UUID;
     $self->{request_id}   = 'urn:uuid:'.$uuid_gen->create_str();
 
-    my $method_data = $self->method_data;
+    my $method_data = $self->_method_data;
     $self->{destination_url} = $method_data->{url};
 
     my $x = XML::Generator->new(
@@ -121,9 +121,9 @@ sub _generate_flt_resolve_doc {
                 $x->AllowCreateFLT( $ns_icms),
             ),
         ),
-    )."";
+    ) . "";
     my @signed_part_ids = values $signed_parts;
-    $soap_request = $self->_sign_xml($soap_request, \@signed_part_ids );
+    $soap_request = $self->_sign_xml( $soap_request, \@signed_part_ids );
 
     $self->{request_data} = $soap_request;
     return $soap_request
@@ -132,7 +132,7 @@ sub _generate_flt_resolve_doc {
 sub _sign_xml {
     my($self, $xml, $target_ids) = @_;
 
-    my $signer = $self->{signer};
+    my $signer = $self->_signer;
     return $signer->sign_multiple_targets($xml, $target_ids);
 }
 
