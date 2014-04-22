@@ -80,6 +80,15 @@ isa_ok($idp, 'Authen::NZRealMe::IdentityProvider');
 is($idp->entity_id, 'https://mts.realme.govt.nz/realmemts/realmeidp',
     "IdP EntityID loaded from metadata looks good");
 
+
+# Extract a bit of iCMS metadata
+
+my $method = eval { $sp->_icms_method_data('Validate'); } || {};
+is($@, '', "parsed iCMS config without error");
+is($method->{url}, 'https://ws.ite.logon.realme.govt.nz/icms/Validate',
+    'got iCMS endpoint for FLT resolution');
+
+
 done_testing();
 
 

@@ -37,7 +37,7 @@ my $signing_cert_filename = 'sp-sign-crt.pem';
 my $signing_key_filename  = 'sp-sign-key.pem';
 my $ssl_cert_filename     = 'sp-ssl-crt.pem';
 my $ssl_key_filename      = 'sp-ssl-key.pem';
-my $icms_wsdl_filename    = 'icms-description.xml';
+my $icms_wsdl_filename    = 'metadata-icms.wsdl';
 
 
 my $ns_md       = [ md    => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
@@ -266,7 +266,8 @@ sub _parse_icms_wsdl {
     my ($self) = @_;
 
     my $icms_pathname = $self->_icms_wsdl_pathname;
-    die "No ICMS WSDL file in config directory" unless -e $icms_pathname;
+    die "No ICMS WSDL file '$icms_wsdl_filename' in config directory"
+        unless -e $icms_pathname;
     my $description = $self->_read_file($icms_pathname);
     my $dom = XML::LibXML->load_xml( string => $description );
     my $xpc = XML::LibXML::XPathContext->new();
@@ -306,7 +307,7 @@ sub _icms_wsdl_pathname {
 
     $conf_dir ||= $self->conf_dir or die "conf_dir not set";
 
-    return $conf_dir . '/'.$icms_wsdl_filename;
+    return $conf_dir . '/' . $icms_wsdl_filename;
 }
 
 sub _icms_method_data {

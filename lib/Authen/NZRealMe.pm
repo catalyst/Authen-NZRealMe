@@ -490,6 +490,15 @@ The assertion service IdP or Identity Provider metadata file will be provided
 to you by RealMe/DIA.  You will simply need to copy it to the config directory
 and give it the correct name.
 
+=item C<metadata-icms.wsdl>
+
+This file is only required if you are both using the assertion service and need
+to resolve the opaque token into an FLT.  It can be omitted if you are only
+using the login service or do not need the user's FLT.
+
+The WSDL file will be provided to you by RealMe/DIA.  You will simply need to
+copy it to the config directory and give it the correct name.
+
 =item C<sp-sign-crt.pem>
 
 This certificate file is used for generating digital signatures for the SP
