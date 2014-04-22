@@ -399,13 +399,13 @@ sub _signer {
     my $key_path = $self->signing_key_pathname
         or die "No path to signing key file";
 
-    my %options = (pub_cert_file => $self->signing_cert_pathname,key_file => $key_path);
+    my %options = (
+        pub_cert_file => $self->signing_cert_pathname,
+        key_file      => $key_path
+    );
     $options{id_attr} = $id_attr if $id_attr;
 
-    return Authen::NZRealMe->class_for('xml_signer')->new(
-        key_file => $key_path,
-        %options
-    );
+    return Authen::NZRealMe->class_for('xml_signer')->new( %options );
 }
 
 

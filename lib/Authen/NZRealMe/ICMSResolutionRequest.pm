@@ -98,10 +98,10 @@ sub _generate_flt_resolve_doc {
 
     my $soap_request = $x->Envelope($ns_soap,
         $x->Header($ns_soap,
-            $x->Action( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{Action}->{id}} , $method_data->{operation}),
-            $x->MessageID( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{MessageID}->{id}} , $self->request_id),
-            $x->To( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{To}->{id}} , $method_data->{url}),
-            $x->ReplyTo( [@$ns_wsa, @$ns_wsu] , {'wsu:Id' => $signed_parts->{ReplyTo}->{id}} ,
+            $x->Action( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{Action}->{id}}, $method_data->{operation}),
+            $x->MessageID( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{MessageID}->{id}}, $self->request_id),
+            $x->To( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{To}->{id}}, $method_data->{url}),
+            $x->ReplyTo( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{ReplyTo}->{id}},
                 $x->Address( $ns_wsa, $addressing_urn ),
             ),
             $x->Security( [@$ns_wsse, @$ns_wsu], {'soap:mustUnderstand' => 'true'},  # Populated by signing method
@@ -111,7 +111,7 @@ sub _generate_flt_resolve_doc {
                 ),
             )
         ),
-        $x->Body($ns_soap, {'wsu:Id' => $signed_parts->{Body}->{id}} ,
+        $x->Body($ns_soap, {'wsu:Id' => $signed_parts->{Body}->{id}},
             $x->RequestSecurityToken($ns_wst,
                 $x->RequestType( $ns_wst, $request_type_urn ),
                 $x->TokenType( $ns_wst, $token_type_urn ),
@@ -121,7 +121,7 @@ sub _generate_flt_resolve_doc {
         ),
     )."";
     my @signed_part_ids = values $signed_parts;
-    $soap_request = $self->_sign_xml($soap_request,\@signed_part_ids );
+    $soap_request = $self->_sign_xml($soap_request, \@signed_part_ids );
 
     $self->{request_data} = $soap_request;
     return $soap_request
@@ -136,9 +136,11 @@ sub _sign_xml {
 
 sub generate_saml_id {
     my($self, $type) = @_;
-    return ('a'..'f')[rand(6)]  # id string must start with a letter1;
+    return ('a'..'f')[rand(6)]  # id string must start with a letter
            . md5_hex( join(',', "$self", $type, time(), rand(), $$) );
 }
+
+1;
 
 __END__
 
@@ -164,7 +166,7 @@ argument.
 =head2 icms_token
 
 Accessor method to return the XML opaque token string as provided by the
-IVS assertion service
+assertion service
 
 =head2 request_id
 
