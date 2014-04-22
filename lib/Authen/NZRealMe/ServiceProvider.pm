@@ -844,8 +844,6 @@ sub _extract_assertion_payload {
             $self->_extract_icms_token($response, $value);
         }
     }
-
-    #$response->set_flt($flt);
 }
 
 
@@ -1341,7 +1339,7 @@ Default: 'low'.
 =item relay_state => string
 
 User-supplied string value that will be returned as a URL parameter to the
-assertion consumer service.as_url
+assertion consumer service.
 
 =back
 
