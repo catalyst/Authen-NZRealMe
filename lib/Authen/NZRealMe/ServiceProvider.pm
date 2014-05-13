@@ -10,7 +10,6 @@ require Crypt::OpenSSL::X509;
 require HTTP::Response;
 
 use URI::Escape  qw(uri_escape uri_unescape);
-use Digest::MD5  qw(md5_hex);
 use POSIX        qw(strftime);
 use Date::Parse  qw();
 use File::Spec   qw();
@@ -142,10 +141,14 @@ sub idp {
 }
 
 
+sub token_generator {
+    return shift->{token_generator} ||=
+        Authen::NZRealMe->class_for('token_generator')->new();
+}
+
+
 sub generate_saml_id {
-    my($self, $type) = @_;
-    return ('a'..'f')[rand(6)]  # id string must start with a letter
-           . md5_hex( join(',', "$self", $type, caller(), time(), rand(), $$) );
+    return shift->token_generator->saml_id(@_);
 }
 
 

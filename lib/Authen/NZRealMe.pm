@@ -59,6 +59,7 @@ tool.
 my %class_map = (
     service_provider        => 'Authen::NZRealMe::ServiceProvider',
     identity_provider       => 'Authen::NZRealMe::IdentityProvider',
+    token_generator         => 'Authen::NZRealMe::TokenGenerator',
     xml_signer              => 'Authen::NZRealMe::XMLSig',
     sp_builder              => 'Authen::NZRealMe::ServiceProvider::Builder',
     sp_cert_factory         => 'Authen::NZRealMe::ServiceProvider::CertFactory',
