@@ -24,6 +24,7 @@ use WWW::Curl::Easy qw(
     CURLOPT_SSL_VERIFYPEER
     CURLOPT_WRITEDATA
     CURLOPT_WRITEHEADER
+    CURLOPT_CAPATH
 );
 
 use constant DATETIME_BEFORE => -1;
@@ -37,6 +38,7 @@ my $signing_key_filename  = 'sp-sign-key.pem';
 my $ssl_cert_filename     = 'sp-ssl-crt.pem';
 my $ssl_key_filename      = 'sp-ssl-key.pem';
 my $icms_wsdl_filename    = 'metadata-icms.wsdl';
+my $ca_cert_directory     = 'ca-certs';
 
 
 my $ns_md       = [ md    => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
@@ -128,6 +130,7 @@ sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
 sub signing_key_pathname   { shift->{conf_dir} . '/' . $signing_key_filename;  }
 sub ssl_cert_pathname      { shift->{conf_dir} . '/' . $ssl_cert_filename;     }
 sub ssl_key_pathname       { shift->{conf_dir} . '/' . $ssl_key_filename;      }
+sub ca_cert_pathname       { shift->{conf_dir} . '/' . $ca_cert_directory;      }
 
 sub idp {
     my $self = shift;
@@ -537,7 +540,12 @@ sub _https_post {
     $curl->setopt(CURLOPT_POSTFIELDS, $body);
     $curl->setopt(CURLOPT_SSLCERT,    $self->ssl_cert_pathname);
     $curl->setopt(CURLOPT_SSLKEY,     $self->ssl_key_pathname);
-    $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+    $curl->setopt(CURLOPT_SSL_VERIFYPEER, 1);
+    $curl->setopt(CURLOPT_CAPATH,     $self->ca_cert_pathname);
+
+    if ($self->{disable_ssl_verify}){
+      $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+    }
 
     my($resp_body, $resp_head);
     open (my $body_fh, ">", \$resp_body);

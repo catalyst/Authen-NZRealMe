@@ -31,6 +31,7 @@ if(!GetOptions(\%opt,
     'type|t=s',
     'allow_create|allow-create',
     'resolve_flt|resolve-flt',
+    'disable_ssl_verify|disable-ssl-verify',
     'env=s',
     'org=s',
     'org_unit|org-unit=s',
@@ -208,6 +209,11 @@ Optional additional details to go on the end of the certificate subject field.
 The CN will be calculated for you based on --domain.  The O and OU will be
 added based on --org and --org-unit.  Prefix each fieldname with a forward
 slash (e.g.: --subject /L=Wellington/ST=Wellington/C=NZ).
+
+=item B<< --disable-ssl-verify >>
+
+When using the C<resolve> command, this option will cause the service provider
+to disable the SSL certificate checks that would take place otherwise.
 
 =item B<< --to-file <filename> >>
 
