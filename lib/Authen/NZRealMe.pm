@@ -83,10 +83,12 @@ sub _sp_from_opt {
     my $opt        = shift;
 
     my $service_type = $opt->{type} || "login";
-    return $class->service_provider(
+    my %sp_options = (
         conf_dir  => _conf_dir($opt),
         type      => $service_type,
     );
+    $sp_options{disable_ssl_verify} = $opt->{disable_ssl_verify} if $opt->{disable_ssl_verify};
+    return $class->service_provider(%sp_options);
 }
 
 
