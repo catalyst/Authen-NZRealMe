@@ -212,8 +212,10 @@ slash (e.g.: --subject /L=Wellington/ST=Wellington/C=NZ).
 
 =item B<< --disable-ssl-verify >>
 
-When using the C<resolve> command, this option will cause the service provider
-to disable the SSL certificate checks that would take place otherwise.
+When using the C<resolve> command, this option will skip verification of the
+SSL certificate presented by the IdP.  This is useful if you have not yet
+configured the necessary CA certs or if you consider the digital signature on
+the assertion provides sufficient guarantee of authority.
 
 =item B<< --to-file <filename> >>
 

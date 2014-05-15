@@ -130,7 +130,7 @@ sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
 sub signing_key_pathname   { shift->{conf_dir} . '/' . $signing_key_filename;  }
 sub ssl_cert_pathname      { shift->{conf_dir} . '/' . $ssl_cert_filename;     }
 sub ssl_key_pathname       { shift->{conf_dir} . '/' . $ssl_key_filename;      }
-sub ca_cert_pathname       { shift->{conf_dir} . '/' . $ca_cert_directory;      }
+sub ca_cert_pathname       { shift->{conf_dir} . '/' . $ca_cert_directory;     }
 
 sub idp {
     my $self = shift;
@@ -540,11 +540,13 @@ sub _https_post {
     $curl->setopt(CURLOPT_POSTFIELDS, $body);
     $curl->setopt(CURLOPT_SSLCERT,    $self->ssl_cert_pathname);
     $curl->setopt(CURLOPT_SSLKEY,     $self->ssl_key_pathname);
-    $curl->setopt(CURLOPT_SSL_VERIFYPEER, 1);
-    $curl->setopt(CURLOPT_CAPATH,     $self->ca_cert_pathname);
 
     if ($self->{disable_ssl_verify}){
-      $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+        $curl->setopt(CURLOPT_SSL_VERIFYPEER, 0);
+    }
+    else {
+        $curl->setopt(CURLOPT_SSL_VERIFYPEER, 1);
+        $curl->setopt(CURLOPT_CAPATH, $self->ca_cert_pathname);
     }
 
     my($resp_body, $resp_head);
@@ -1280,6 +1282,12 @@ This will always be the file F<sp-ssl-crt.pem> in the configuration directory.
 
 Accessor for the pathname of the Service Provider's mutual SSL private key.
 This will always be the file F<sp-sign-crt.pem> in the configuration directory.
+
+=head2 ca_cert_pathname
+
+Name of the sub-directory (beneath F<conf_dir>) that contains the CA
+certficates required to verify the certficate presented by the IdP on the back
+channel when resolving an assertion.
 
 =head2 idp
 
