@@ -1300,6 +1300,11 @@ L<Authen::NZRealMe::IdentityProvider>.
 Returns a string URN representing the format of the NameID (Federated Logon Tag
 - FLT) requested/expected from the Identity Provider.
 
+=head2 token_generator
+
+Creates and returns an object of the class responsible for generating random
+ID tokens.
+
 =head2 generate_saml_id
 
 Used by the request classes to generate a unique identifier for each request.
