@@ -42,7 +42,7 @@ is($sp->contact_surname, 'Bloggs',
 my $idp = $sp->idp;
 
 isa_ok($idp, 'Authen::NZRealMe::IdentityProvider');
-is($idp->entity_id, 'https://mts.realme.govt.nz/saml2',
+is($idp->entity_id, 'https://test.fakeme.govt.nz/saml2',
     "IdP EntityID loaded from metadata looks good");
 
 
@@ -77,7 +77,7 @@ is($sp->contact_surname, 'Briggs',
 $idp = $sp->idp;
 
 isa_ok($idp, 'Authen::NZRealMe::IdentityProvider');
-is($idp->entity_id, 'https://mts.realme.govt.nz/realmemts/realmeidp',
+is($idp->entity_id, 'https://test.fakeme.govt.nz/fakemetest/fakemeidp',
     "IdP EntityID loaded from metadata looks good");
 
 
