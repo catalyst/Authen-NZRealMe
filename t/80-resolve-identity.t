@@ -1,9 +1,9 @@
 #!perl
 
-use Test::More;
-use FindBin;
-use File::Spec;
+use strict;
+use warnings;
 
+use Test::More;
 use FindBin;
 use File::Spec;
 use lib File::Spec->catdir($FindBin::Bin, 'test-lib');
