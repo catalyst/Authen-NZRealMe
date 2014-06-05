@@ -502,7 +502,10 @@ sub _resolve_flt {
     }
 
     if($args{_to_file_}) {
-            $self->_write_file($args{_to_file_}, $content) if $response->is_success;
+        # Add a -icms suffix so we don't overwrite the SAML response file
+        my $icms_file = $args{_to_file_};
+        $icms_file =~ s{([.]\w+|)$}{-icms$1};
+        $self->_write_file($icms_file, $content);
     }
 
     my $flt = $self->_extract_flt($content);
