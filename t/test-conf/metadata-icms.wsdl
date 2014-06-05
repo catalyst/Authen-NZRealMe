@@ -172,10 +172,10 @@
 	</wsdl:binding>
 	<wsdl:service name="igovtContextMappingService">
 		<wsdl:port binding="iCMS:Issue" name="Issue">
-			<soap:address location="https://ws.ite.logon.realme.govt.nz/icms/Issue" />
+			<soap:address location="https://ws.test.logon.fakeme.govt.nz/icms/Issue" />
 		</wsdl:port>
 		<wsdl:port binding="iCMS:Validate" name="Validate">
-			<soap:address location="https://ws.ite.logon.realme.govt.nz/icms/Validate" />
+			<soap:address location="https://ws.test.logon.fakeme.govt.nz/icms/Validate" />
 		</wsdl:port>
 	</wsdl:service>
 </wsdl:definitions>
