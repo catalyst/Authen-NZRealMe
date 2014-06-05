@@ -18,3 +18,4 @@ MANIFEST.SKIP
 ^[^/]+\.xml$
 ^TODO
 ^libauthen-nzrealme
+t/test-data/sign
