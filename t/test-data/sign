@@ -1,0 +1,75 @@
+#!/usr/bin/perl
+
+use 5.014;
+use strict;
+use warnings;
+use autodie;
+
+use FindBin;
+
+use lib $FindBin::Bin . '/../../lib';
+
+use Authen::NZRealMe::XMLSig;
+
+my $key_file    = shift || die_usage();
+my $input_file  = shift || die_usage();
+my @targets     = @ARGV;
+die_usage() unless @targets;
+
+
+my $xml = do {
+    local($/) = undef;
+    open my $fh, '<', $input_file;
+    <$fh>;
+};
+
+if(@targets == 1) {
+    sign_one_ref(@targets);
+}
+else {
+    sign_multiple_refs(@targets);
+}
+
+exit;
+
+
+sub die_usage {
+    die "$0 key_file input_file target_id\n";
+}
+
+
+sub sign_one_ref {
+    my($target_id) = @_;
+    my $id_attr    = 'ID';
+
+    if($target_id =~ /^(\w+)=(.+)$/) {
+        ($id_attr, $target_id) = ($1, $2);
+    }
+
+    my $signer = Authen::NZRealMe::XMLSig->new(
+        key_file  => $key_file,
+        id_attr   => $id_attr,
+    );
+
+    print $signer->sign($xml, $target_id);
+}
+
+
+sub sign_multiple_refs {
+    # Haven't managed to make this work yet :-(
+    my @target_refs = map {
+        {
+            id          => $_,
+            namespaces  => ['soap'],
+        };
+    } @_;
+
+    my $signer = Authen::NZRealMe::XMLSig->new(
+        key_file  => $key_file,
+        id_attr   => 'wsu:Id',
+    );
+
+    print $signer->sign_multiple_targets($xml, \@target_refs);
+}
+
+

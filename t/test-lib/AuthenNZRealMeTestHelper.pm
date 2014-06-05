@@ -20,6 +20,12 @@ our @EXPORT = qw(
     xml_node_content_is
 );
 
+my @namespaces = (
+    [ nssaml    => 'urn:oasis:names:tc:SAML:2.0:assertion' ],
+    [ nssamlp   => 'urn:oasis:names:tc:SAML:2.0:protocol' ],
+    [ nssoapenv => 'http://schemas.xmlsoap.org/soap/envelope/' ],
+);
+
 my $Test = Test::Builder->new();
 
 sub test_conf_dir {
@@ -90,8 +96,9 @@ sub _parse_saml_xml {
         return;
     }
 
-    $xc->registerNs(nssaml  => 'urn:oasis:names:tc:SAML:2.0:assertion');
-    $xc->registerNs(nssamlp => 'urn:oasis:names:tc:SAML:2.0:protocol');
+    foreach my $ns (@namespaces) {
+        $xc->registerNs(@$ns);
+    }
 
     return $xc;
 }

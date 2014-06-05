@@ -52,6 +52,35 @@ $resp = eval {
 };
 
 is($@ => '', 'no exceptions!');
+
+# Dissect the request first
+
+my($xml) = $sp->test_request_log;
+
+xml_found_node_ok($xml, q{/nssoapenv:Envelope});
+xml_found_node_ok($xml, q{/nssoapenv:Envelope/nssoapenv:Body});
+
+xml_node_content_is($xml,
+    q{/nssoapenv:Envelope/nssoapenv:Body/nssamlp:ArtifactResolve/@Version},
+    '2.0'
+);
+
+xml_node_content_is($xml,
+    q{/nssoapenv:Envelope/nssoapenv:Body/nssamlp:ArtifactResolve/@IssueInstant},
+    '2014-05-29T20:55:00Z'
+);
+
+xml_node_content_is($xml,
+    q{/nssoapenv:Envelope/nssoapenv:Body/nssamlp:ArtifactResolve/nssaml:Issuer},
+    'https://www.example.govt.nz/app/sample-identity'
+);
+
+xml_node_content_is($xml,
+    q{/nssoapenv:Envelope/nssoapenv:Body/nssamlp:ArtifactResolve/nssamlp:Artifact},
+    $artifact
+);
+
+# And then the response
 isa_ok($resp => 'Authen::NZRealMe::ResolutionResponse', 'resolution response');
 
 ok($resp->is_success,         'response status is success');
@@ -72,6 +101,33 @@ is($resp->address_suburb    => 'Petone',          'address_suburb'    );
 is($resp->address_town_city => 'Hutt City',       'address_town_city' );
 is($resp->address_postcode  => '1234',            'address_postcode'  );
 is($resp->fit               => 'GIGANAIRE',       'fit'               );
+is($resp->flt               => undef,             'flt (not present)' );
+
+# Try again but with iCMS resolution as well
+
+$resp = eval {
+    $sp->resolve_artifact(
+        artifact    => $artifact,
+        request_id  => $request_id,
+        resolve_flt => 1,
+    );
+};
+
+is($@ => '', 'no exceptions!');
+
+# Dissect the iCMS request first
+
+(undef, $xml) = $sp->test_request_log;
+#diag($xml);
+# TODO: add some assertions about the structure/content of iCMS request
+
+isa_ok($resp => 'Authen::NZRealMe::ResolutionResponse', 'resolution response');
+
+# And then the response
+ok($resp->is_success, 'response status is success');
+is($resp->surname     => 'Wallaphocter',  'surname'         );
+is($resp->flt         => 'BLAHBLAHBLAH',  'flt now present' );
 
 done_testing();
+exit;
 
