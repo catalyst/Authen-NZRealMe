@@ -53,7 +53,7 @@ my $ns_ct       = [ ct    => "urn:oasis:names:tc:ciq:ct:3"  ];
 my $ns_soap     = [ soap  => "http://www.w3.org/2003/05/soap-envelope" ];
 my $ns_wsse     = [ wsse  => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" ];
 my $ns_wsu      = [ wsu   => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" ];
-my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512/" ];
+my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512" ];
 my $ns_wsa      = [ wsa   => "http://www.w3.org/2005/08/addressing" ];
 my $ns_ec       = [ ec    => "http://www.w3.org/2001/10/xml-exc-c14n#" ];
 my $ns_icms     = [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ];

@@ -85,7 +85,7 @@ is($idp->entity_id, 'https://test.fakeme.govt.nz/fakemetest/fakemeidp',
 
 my $method = eval { $sp->_icms_method_data('Validate'); } || {};
 is($@, '', "parsed iCMS config without error");
-is($method->{url}, 'https://ws.test.logon.fakeme.govt.nz/icms/Validate',
+is($method->{url}, 'https://ws.test.logon.fakeme.govt.nz/icms/Validate_v1_1',
     'got iCMS endpoint for FLT resolution');
 
 
