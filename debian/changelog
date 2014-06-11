@@ -1,3 +1,9 @@
+libauthen-nzrealme-perl (1.11-1) precise; urgency=low
+
+  * packaged as per initial release to CPAN
+
+ -- Grant McLean <grant@putnam.wgtn.cat-it.co.nz>  Thu, 12 Jun 2014 08:59:31 +1200
+
 libauthen-nzrealme-perl (1.10-1) precise; urgency=low
 
   * don't attempt to resolve the opaque token to an FLT on error responses
