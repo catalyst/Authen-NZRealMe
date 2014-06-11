@@ -14,9 +14,10 @@ Provides an API for integrating your application with the New Zealand RealMe
 login service and the RealMe assertion service (for verified identity and
 address details) using SAML 2.0 messaging.
 
-NOTE: PRE-RELEASE STATUS - This distribution was renamed from Authen::NZigovt
-following the rebranding of the service to "RealMe".  The login functionality is
-stable but support for the assertion service is still under development.
+Note: This distribution was renamed from Authen::NZigovt following the
+rebranding of the service from "igovt" to "RealMe".  When migrating systems to
+use the new module, it will be necessary to rename some of the config files to
+the new names listed under L<CONFIGURATION> below.
 
 The distribution also includes a command-line tool called C<nzrealme> which can
 be used for:
@@ -643,7 +644,7 @@ This method forms half of a simple dependency injection framework.  Rather
 than hard-code the classnames for the various parts of the API, this method
 is used to turn a simple functional name (e.g.: C<'service_provider'>) into a
 classname like C<Authen::NZRealMe::ServiceProvider>.  This method will also
-load the loads the package using C<require>.
+load the package using C<require>.
 
 You would not usually call this method directly - instead you would use the
 C<service_provider> method which calls this.
@@ -702,30 +703,21 @@ L<Authen::NZRealMe::ResolutionResponse>
 
 =item *
 
+L<Authen::NZRealMe::ICMSResolutionRequest>
+
+=item *
+
 L<Authen::NZRealMe::LogonStrength>
+
+=item *
+
+L<Authen::NZRealMe::TokenGenerator>
 
 =item *
 
 L<Authen::NZRealMe::XMLSig>
 
 =back
-
-
-=head1 BUGS
-
-The current implementation does not attempt any validation of the SSL cert
-presented by the IdP when connecting over the backchannel to resolve an
-artifact.  However, the resulting assertion I<is> checked to confirm that a) it
-is a response to the specified request_id I<and> b) the response has a valid
-digital signature (using the IdP public key from the metadata file).
-
-There is no implementation of SingleLogOut functionality.
-
-Please report any bugs or feature requests to
-C<bug-authen-nzrealme at rt.cpan.org>, or through the web interface at
-L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Authen-NZRealMe>.  I will be
-notified, and then you'll automatically be notified of progress on your bug as
-I make changes.
 
 
 =head1 SUPPORT
@@ -768,7 +760,8 @@ L<http://www.catalyst.net.nz>.
 
 Copyright (c) 2010-2014 Enrolment Services, New Zealand Electoral Commission
 
-Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
+Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt> and
+Haydn Newport E<lt>haydn@catalyst.net.nzE<gt>.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
