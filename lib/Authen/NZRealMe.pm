@@ -738,9 +738,9 @@ You can also look for information at:
 
 =over 4
 
-=item * RT: CPAN's request tracker
+=item * Issue tracker on github
 
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Authen-NZRealMe>
+L<https://github.com/catalyst/Authen-NZRealMe/issues>
 
 =item * Source code repository on GitHub
 
