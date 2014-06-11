@@ -2,6 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.12      2014-06-12 10:53:59 Pacific/Auckland
+    - POD updates
+    - metadata update to designate github issues for bugtracker
+
 1.11      2014-06-12 08:56:46 Pacific/Auckland
     - first release to CPAN with assertion service and iCMS support
     - implement cryptographically random ID tokens
