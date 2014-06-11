@@ -17,7 +17,7 @@ address details) using SAML 2.0 messaging.
 Note: This distribution was renamed from Authen::NZigovt following the
 rebranding of the service from "igovt" to "RealMe".  When migrating systems to
 use the new module, it will be necessary to rename some of the config files to
-the new names listed under L<CONFIGURATION> below.
+the new names listed under L</CONFIGURATION> below.
 
 The distribution also includes a command-line tool called C<nzrealme> which can
 be used for:
