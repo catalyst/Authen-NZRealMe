@@ -2,11 +2,16 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.11      2014-06-12 08:56:46 Pacific/Auckland
+    - first release to CPAN with assertion service and iCMS support
+    - implement cryptographically random ID tokens
+    - add verification of IdP SSL cert on back-channel + option to skip
+
 1.10      2014-04-10 16:34:08 Pacific/Auckland
     - don't attempt to resolve the opaque token to an FLT on error responses
 
 1.09      2014-03-05 15:42:28 Pacific/Auckland
-    - initial (pre)release with iCMS support
+    - initial (pre)release with iCMS support - added by Haydn Newport
 
 1.08      2013-11-29 16:43:06 Pacific/Auckland
     - initial (pre)release with support for assertion service (no iCMS yet)
