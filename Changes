@@ -2,6 +2,9 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.14      2014-06-13 10:56:23 Pacific/Auckland
+    - remove one more 5.14ism from XMLSig.pm (and test on 5.10 this time)
+
 1.13      2014-06-12 21:40:23 Pacific/Auckland
     - remove a 5.14ism from XMLSig.pm
 
