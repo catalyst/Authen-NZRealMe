@@ -123,7 +123,7 @@ sub _generate_flt_resolve_doc {
             ),
         ),
     ) . "";
-    my @signed_part_ids = values $signed_parts;
+    my @signed_part_ids = values %$signed_parts;
     $soap_request = $self->_sign_xml( $soap_request, \@signed_part_ids );
 
     $self->{request_data} = $soap_request;
