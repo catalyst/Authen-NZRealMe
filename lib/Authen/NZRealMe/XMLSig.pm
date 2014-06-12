@@ -423,7 +423,7 @@ sub _parse_signature {
             }
             die "Unsupported transformation: '$xform' on digest for $ref_uri";
         }
-        push $references, $ref_data;
+        push @$references, $ref_data;
     }
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
