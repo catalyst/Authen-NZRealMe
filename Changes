@@ -2,6 +2,9 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.13      2014-06-12 21:40:23 Pacific/Auckland
+    - remove a 5.14ism from XMLSig.pm
+
 1.12      2014-06-12 10:53:59 Pacific/Auckland
     - POD updates
     - metadata update to designate github issues for bugtracker
