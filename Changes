@@ -2,6 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.15      2014-06-15 14:37:14 Pacific/Auckland
+    - fix dependency for MIME::Base64 v3.11 for (en|de)code_base64url functions
+    - add missing dependency for Date::Parse
+
 1.14      2014-06-13 10:56:23 Pacific/Auckland
     - remove one more 5.14ism from XMLSig.pm (and test on 5.10 this time)
 
