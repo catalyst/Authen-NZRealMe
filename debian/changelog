@@ -1,3 +1,15 @@
+libauthen-nzrealme-perl (1.15-1) stable; urgency=low
+
+  * new upstream release:
+    - fix dependency for MIME::Base64 v3.11 for (en|de)code_base64url functions
+    - add missing dependency for Date::Parse
+    - remove one more 5.14ism from XMLSig.pm (and test on 5.10 this time)
+    - remove a 5.14ism from XMLSig.pm
+    - POD updates
+    - metadata update to designate github issues for bugtracker
+
+ -- Grant McLean <grant@catalyst.net.nz>  Thu, 28 May 2015 16:05:13 +1200
+
 libauthen-nzrealme-perl (1.11-1) precise; urgency=low
 
   * packaged as per initial release to CPAN
