@@ -2,7 +2,6 @@ package Authen::NZRealMe::ServiceProvider::CertFactory;
 
 use warnings;
 use strict;
-use feature "switch";
 
 use Term::ReadLine;
 
@@ -233,15 +232,15 @@ sub _validate_env {
 sub _validate_org {
     my($class, $value) = @_;
 
-    given($value) {
-        when(m{\A[a-z0-9(),./ -]+\z}i) { return 1; }
-        when(m{\A\z}i) {
-            print "Organisation name must not be blank\n";
-        }
-        default {
-            print "Organisation name should be plain text without special characters\n";
-        }
-    };
+    if($value =~ m{\A[a-z0-9(),./ -]+\z}i) {
+        return 1;
+    }
+    elsif($value !~ m{\S}i) {
+        print "Organisation name must not be blank\n";
+    }
+    else {
+        print "Organisation name should be plain text without special characters\n";
+    }
     return;
 }
 
@@ -249,12 +248,12 @@ sub _validate_org {
 sub _validate_org_unit {
     my($class, $value) = @_;
 
-    given($value) {
-        when(m{\A[a-z0-9(),./ -]*\z}i) { return 1; }
-        default {
-            print "Organisational unit should be plain text without special characters\n";
-        }
-    };
+    if($value =~ m{\A[a-z0-9(),./ -]*\z}i) { 
+        return 1;
+    }
+    else {
+        print "Organisational unit should be plain text without special characters\n";
+    }
     return;
 }
 
@@ -262,12 +261,12 @@ sub _validate_org_unit {
 sub _validate_subject_suffix {
     my($class, $value) = @_;
 
-    given($value) {
-        when(m{\A(/[A-Z]+=[a-zA-Z0-9(),. -]+)*\z}i) { return 1; }
-        default {
-            print "Organisational unit should be plain text without special characters\n";
-        }
-    };
+    if($value =~ m{\A(/[A-Z]+=[a-zA-Z0-9(),. -]+)*\z}i) {
+        return 1;
+    }
+    else {
+        print "Organisational unit should be plain text without special characters\n";
+    }
     return;
 }
 
