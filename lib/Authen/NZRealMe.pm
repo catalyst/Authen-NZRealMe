@@ -125,10 +125,9 @@ sub _dispatch_make_certs {
     my($class, $opt) = @_;
 
     my %args;
-    $args{env}      = $opt->{env}      if $opt->{env};
-    $args{org}      = $opt->{org}      if $opt->{org};
-    $args{org_unit} = $opt->{org_unit} if $opt->{org_unit};
-    $args{domain}   = $opt->{domain}   if $opt->{domain};
+    foreach my $key (qw(env org org_unit domain subject_suffix self_signed)) {
+        $args{$key} = $opt->{$key} if defined $opt->{$key};
+    }
     $class->class_for('service_provider')->generate_certs(
         _conf_dir($opt), %args
     );

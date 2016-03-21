@@ -47,9 +47,7 @@ EOF
 sub generate_certs {
     my($class, $conf_dir, %args) = @_;
 
-    if(not keys %args) {
-        %args = $class->_prompt_for_parameters() or exit 1;
-    }
+    %args = $class->_prompt_for_parameters(\%args) or exit 1;
     _check_args(\%args);
     $args{conf_dir} = $conf_dir;
 
@@ -65,8 +63,11 @@ sub generate_certs {
     _generate_private_key($key_file);
     _generate_certificate('ssl', $key_file, \%args);
 
-    if($args{env} eq 'prod') {
+    if(not $args{self_signed}) {
         print "\nSuccessfully generated two certificate signing requests.\n"
+            . "You can dump the CSR contents to confirm with:\n\n"
+            . "  openssl req -in sp-sign.csr -text\n"
+            . "  openssl req -in sp-ssl.csr -text\n\n"
             . "Once you have the certificates signed, save them as\n"
             . "sp-sign-crt.pem and sp-ssl-crt.pem\n";
     }
@@ -77,8 +78,8 @@ sub generate_certs {
 
 
 sub _prompt_for_parameters {
-    my($class) = @_;
-    my $args   =  { };
+    my $class = shift;
+    my $args  = shift // { };
 
     $term = Term::ReadLine->new($prog_name);
     if($term->Attribs and $term->Attribs->can('ornaments')) {
@@ -89,9 +90,9 @@ sub _prompt_for_parameters {
     }
 
     print <<EOF;
-This tool will allow you to generate self-signed certificates for your ITE
-integration or CSRs (Certificate Signing Requests) for your production
-integration.  You will be asked a short list of questions.
+This tool will allow you to generate CSRs (Certificate Signing Requests)
+for your ITE or Production integration.  You will be asked a short list
+of questions.
 
 EOF
 
@@ -114,14 +115,17 @@ EOF
             $args->{$key} = $value;
         }
 
-        print "\nReady to generate certificates with the parameters:\n"
+        my $output = $args->{self_signed}
+                   ? 'self-signed certificates'
+                   : 'CSRs';
+        print "\nReady to generate $output with the parameters:\n"
             . "  Environment:         $args->{env}\n"
             . "  Organisation:        $args->{org}\n"
             . "  Organisational Unit: $args->{org_unit}\n"
             . "  Subject Suffix:      $args->{subject_suffix}\n"
             . "  Domain:              $args->{domain}\n\n";
 
-        last TRY if _prompt_yes_no('Do you wish to generate certificates now? (y/n) ', '');
+        last TRY if _prompt_yes_no("Do you wish to generate $output now? (y/n) ", '');
         redo TRY if _prompt_yes_no('Do you wish to try again? (y/n) ', '');
         exit 1;
     }
@@ -178,7 +182,7 @@ sub _generate_certificate {
         '-days', '1095',
     );
 
-    if($args->{env} eq 'prod') {
+    if(not $args->{self_signed}) {
         push @command, '-out', "${out_base}.csr";
     }
     else {
@@ -286,9 +290,9 @@ This class is used for generating the certificates used for signing SAML
 AuthnRequest messages and for mutual SSL encryption of messages sent over the
 backchannel.
 
-For the ITE environment, self-signed certificates will be generated.  For
-production, CSRs will be generated for signing by a certification authority
-(CA).
+For both production and ITE environments, CSRs will be generated for signing by
+a certification authority (CA).  (Historically self-signed certificates were
+used in ITE).
 
 
 =head1 METHODS
