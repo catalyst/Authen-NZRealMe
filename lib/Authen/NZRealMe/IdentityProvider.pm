@@ -105,12 +105,14 @@ sub _read_metadata_from_file {
     ) {
         $params{$_->[0]} = $xc->findvalue($_->[1]);
     }
-    $params{signing_cert_pem_data} =~ s{^[ \t]+}{}mg;
-    $params{signing_cert_pem_data} =~ s{\A[ \t\r\n]+}{}g;
-    $params{signing_cert_pem_data} =
-        "-----BEGIN CERTIFICATE-----\n"
-        . $params{signing_cert_pem_data}
-        . "-----END CERTIFICATE-----\n";
+    # Strip whitespace and re-wrap base64 encoded data to 64 chars per line
+    $params{signing_cert_pem_data} =~ s{\s+}{}g;
+    my @cert_parts = $params{signing_cert_pem_data} =~ m{(\S{1,64})}g;
+    $params{signing_cert_pem_data} = join("\n",
+        '-----BEGIN CERTIFICATE-----',
+        @cert_parts,
+        '-----END CERTIFICATE-----',
+    ) . "\n";
 
     my %ars;
     foreach my $svc( $xc->findnodes(
