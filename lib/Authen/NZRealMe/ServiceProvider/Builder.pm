@@ -186,18 +186,18 @@ sub _check_idp_metadata {
 sub _validate_id {
     my($class, $value) = @_;
 
-    given($value) {
-        when(/\A[a-z_][\w-]*\z/i) { return 1; }
-        when(/\A\z/i) {
-            print "ID must not be blank\n";
-        }
-        when(/\A[^a-z_]/i) {
-            print "ID should start with a letter\n";
-        }
-        default {
-            print "ID should contain only letters, numbers, _ and - characters\n";
-        }
-    };
+    if($value =~ /\A[a-z_][\w-]*\z/i) {
+        return 1;
+    }
+    elsif($value eq '') {
+        print "ID must not be blank\n";
+    }
+    elsif($value =~ /\A[^a-z_]/i) {
+        print "ID should start with a letter\n";
+    }
+    else {
+        print "ID should contain only letters, numbers, _ and - characters\n";
+    }
     return;
 }
 
@@ -205,17 +205,15 @@ sub _validate_id {
 sub _validate_entity_id {
     my($class, $value) = @_;
 
-    given($value) {
-        when(m{\Ahttps://[\w.-]+/[\w.-]+/[\w.-]+\z}i) {
-            return 1;
-        }
-        when(/\A\z/i) {
-            print "Entity ID must not be blank\n";
-        }
-        default {
-            print "Entity ID should match the URL pattern above\n";
-        }
-    };
+    if($value =~ m{\Ahttps://[\w.-]+/[\w.-]+/[\w.-]+\z}i) {
+        return 1;
+    }
+    elsif($value eq '') {
+        print "Entity ID must not be blank\n";
+    }
+    else {
+        print "Entity ID should match the URL pattern above\n";
+    }
     return;
 }
 
