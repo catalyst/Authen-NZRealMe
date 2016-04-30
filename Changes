@@ -2,6 +2,11 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.16      2016-05-01 11:51:32 Pacific/Auckland
+    - expunge the given/when keywords to avoid 'experimental' warnings
+    - revise make-certs command to not use self-signed certs in ITE
+    - add workaround for X509Certificate data with no newlines
+
 1.15      2014-06-15 14:37:14 Pacific/Auckland
     - fix dependency for MIME::Base64 v3.11 for (en|de)code_base64url functions
     - add missing dependency for Date::Parse
