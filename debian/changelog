@@ -1,3 +1,12 @@
+libauthen-nzrealme-perl (1.16-1) stable; urgency=medium
+
+  * new upstream release:
+    - expunge the given/when keywords to avoid 'experimental' warnings
+    - revise make-certs command to not use self-signed certs in ITE
+    - add workaround for X509Certificate data with no newlines
+
+ -- Grant McLean <grant@catalyst.net.nz>  Sun, 01 May 2016 11:52:30 +1200
+
 libauthen-nzrealme-perl (1.15-1) stable; urgency=low
 
   * new upstream release:
