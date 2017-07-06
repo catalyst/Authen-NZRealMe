@@ -40,14 +40,6 @@ EOF
 Which company name should be listed in the technical contact details?
 EOF
 
-    contact_first_name => <<EOF,
-What is the first name of the technical contact person?
-EOF
-
-    contact_surname => <<EOF,
-What is the first name of the technical contact person?
-EOF
-
 );
 
 my @field_names = map { $_ % 2 ? () : $fields[$_] } ( 0 .. $#fields );

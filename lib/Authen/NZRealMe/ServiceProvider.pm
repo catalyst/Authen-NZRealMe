@@ -250,8 +250,6 @@ sub _read_metadata_from_file {
         [ organization_name      => q{/md:EntityDescriptor/md:Organization/md:OrganizationName} ],
         [ organization_url       => q{/md:EntityDescriptor/md:Organization/md:OrganizationURL} ],
         [ contact_company        => q{/md:EntityDescriptor/md:ContactPerson/md:Company} ],
-        [ contact_first_name     => q{/md:EntityDescriptor/md:ContactPerson/md:GivenName} ],
-        [ contact_surname        => q{/md:EntityDescriptor/md:ContactPerson/md:SurName} ],
     ) {
         $params{$_->[0]} = $xc->findvalue($_->[1]);
     }
@@ -1139,9 +1137,7 @@ sub _gen_contact {
     my $self = shift;
     my $x    = $self->_x;
 
-    my $have_contact = $self->contact_company
-                       || $self->contact_first_name
-                       || $self->contact_surname;
+    my $have_contact = $self->contact_company;
 
     return() unless $have_contact;
 
@@ -1150,8 +1146,8 @@ sub _gen_contact {
             contactType      => 'technical',
         },
         $x->Company  ($self->contact_company    || ''),
-        $x->GivenName($self->contact_first_name || ''),
-        $x->SurName  ($self->contact_surname    || ''),
+        $x->GivenName(''),
+        $x->SurName  (''),
     );
 }
 
