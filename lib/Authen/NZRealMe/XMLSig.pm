@@ -17,13 +17,11 @@ messaging.
 
 
 use Carp          qw(croak);
-use Digest::SHA   qw(sha1 sha1_base64 sha256);
-use MIME::Base64  qw(encode_base64 decode_base64);
+use MIME::Base64  qw(encode_base64);
 
 require XML::LibXML;
 require XML::LibXML::XPathContext;
 require XML::Generator;
-require Crypt::OpenSSL::RSA;
 require Crypt::OpenSSL::X509;
 
 use constant URI => 1;
@@ -35,19 +33,11 @@ my $ns_wsu     = [ wsu   => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401
 my $ns_wsse    = [ wsse  => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' ];
 
 
-my $uri_rsa_sha1_sig    = 'http://www.w3.org/2000/09/xmldsig#rsa-sha1';
 my $uri_env_sig         = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
 my $uri_c14n            = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
 my $uri_ec14n           = 'http://www.w3.org/2001/10/xml-exc-c14n';
-my $uri_digest_sha1     = 'http://www.w3.org/2000/09/xmldsig#sha1';
-my $uri_digest_sha256   = 'http://www.w3.org/2001/04/xmlenc#sha256';
 my $uri_key_encoding    = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
 my $uri_key_valuetype   = 'http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#ThumbprintSHA1';
-
-my $digest_method_from_uri = {
-    $uri_digest_sha1   => "_xml_digest_sha1",
-    $uri_digest_sha256 => "_xml_digest_sha256",
-};
 
 use constant WITH_COMMENTS    => 1;
 use constant WITHOUT_COMMENTS => 0;
@@ -56,15 +46,35 @@ sub new {
     my $class = shift;
 
     my $self = bless {
-        id_attr => 'ID',
+        id_attr   => 'ID',
+        algorithm => 'algorithm_sha1',
         @_
     }, $class;
+
+    my $algorithm = delete $self->{algorithm};
+    $self->{_algorithm} = Authen::NZRealMe->class_for($algorithm)->new()
+      or die "no algorithm class created";
+
     return $self;
 }
 
+sub id_attr    { shift->{id_attr};    }
+sub _algorithm { shift->{_algorithm}; }
 
-sub id_attr { shift->{id_attr}; }
+sub SignatureMethod { shift->_algorithm->SignatureMethod(); }
+sub DigestMethod    { shift->_algorithm->DigestMethod(); }
 
+sub rsa_signature {
+    my $self = shift;
+
+    return $self->_algorithm->rsa_signature($self->key_text, @_);
+}
+
+sub xml_digest {
+    my $self = shift;
+
+    return $self->_algorithm->xml_digest(@_);
+}
 
 sub sign {
     my($self, $xml, $target_id) = @_;
@@ -90,21 +100,19 @@ sub sign {
 
 sub sign_multiple_targets {
     my($self, $xml, $target_ids) = @_;
-    my $doc      = $self->_xml_to_dom($xml);
+    my $doc = $self->_xml_to_dom($xml);
 
     die 'Passed in ref should be an array' if (ref $target_ids ne 'ARRAY');
+
+    my $signature_method = $self->SignatureMethod();
 
     my $x = XML::Generator->new();
 
     # Generate the reference blocks for each target
-    my $signedinfo;
-    foreach my $target( @$target_ids ) {
-        $signedinfo .= $self->_generate_reference_block($doc, $target->{id}, $target->{namespaces});
-    }
-    $signedinfo = $x->SignedInfo( $ns_ds,
+    my $signedinfo = $x->SignedInfo( $ns_ds,
         $x->CanonicalizationMethod( $ns_ds, { Algorithm => $ns_exc14n->[URI] }),
-        $x->SignatureMethod( $ns_ds, { Algorithm => $uri_rsa_sha1_sig } ),
-        $signedinfo,
+        $x->SignatureMethod( $ns_ds, { Algorithm => $signature_method } ),
+        $self->generate_reference_blocks($doc, $target_ids),
     ).'';
 
     # Generate SignatureValue for whole SignedInfo block
@@ -155,10 +163,33 @@ sub _hex_to_b64 {
     return $b64;
 }
 
-sub _generate_reference_block {
-    my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
+sub generate_reference_blocks {
+    my ($self, $doc, $target_ids) = @_;
 
-    my $digest = $self->_generate_digest($doc, $target_id, $inclusive_namespaces);
+    return unless @$target_ids;
+
+    # Generate the reference blocks for each target, using sha256 encryption
+    my $algorithm_sha256 = Authen::NZRealMe->class_for('algorithm_sha256')->new();
+
+    my @signedinfo;
+    foreach my $target ( @$target_ids ) {
+        push @signedinfo, $self->_generate_reference_block($doc, $target, $algorithm_sha256);
+    }
+
+    return join '', @signedinfo;
+}
+
+sub _generate_reference_block {
+    my ($self, $doc, $target, $algorithm) = @_;
+
+    my $target_id = $target->{id};
+    my $inclusive_namespaces = $target->{namespaces};
+
+    my $c14n_frag = $self->_generate_ec14n_xml($doc, $target_id, $inclusive_namespaces);
+
+    my $digest        = $algorithm->xml_digest($c14n_frag);
+    my $digest_method = $algorithm->DigestMethod();
+
     my $x = XML::Generator->new();
 
     my $prefix_hash = {};
@@ -170,21 +201,19 @@ sub _generate_reference_block {
                 $x->InclusiveNamespaces( $ns_exc14n, $prefix_hash ),
             ),
         ),
-        $x->DigestMethod( $ns_ds, { Algorithm => $uri_digest_sha256 } ),
+        $x->DigestMethod( $ns_ds, { Algorithm => $digest_method } ),
         $x->DigestValue( $ns_ds, $digest ),
-    ) . '';
-    return $block."\n";
+    ) . "\n";
+    return $block;
 }
 
-sub _generate_digest {
+sub _generate_ec14n_xml {
     my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
     my $id_attr  = $self->id_attr;
     my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
             or croak "Can't find element with ${id_attr}='${target_id}'";
 
-    my $c14n_frag = $self->_ec14n_xml($target, WITHOUT_COMMENTS, $inclusive_namespaces);
-
-    return $self->_xml_digest_sha256($c14n_frag, $inclusive_namespaces);
+    return $self->_ec14n_xml($target, WITHOUT_COMMENTS, $inclusive_namespaces);
 }
 
 
@@ -242,21 +271,6 @@ sub _ec14n_xml {
 }
 
 
-sub _xml_digest_sha1 {
-    my($self, $frag_xml) = @_;
-
-    my $bin_digest = sha1($frag_xml);
-    return encode_base64($bin_digest, '');
-}
-
-sub _xml_digest_sha256 {
-    my($self, $frag_xml) = @_;
-
-    my $bin_digest = sha256($frag_xml);
-    return encode_base64($bin_digest, '');
-}
-
-
 sub _xml_to_dom {
     my($self, $xml) = @_;
 
@@ -270,7 +284,7 @@ sub _make_signature_xml {
     my($self, $frag, $id) = @_;
 
     my $c14n_frag  = $self->_ec14n_xml($frag);
-    my $digest     = $self->_xml_digest_sha1($c14n_frag);
+    my $digest     = $self->xml_digest($c14n_frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
     my $sig_value  = $self->rsa_signature($self->_ec14n_xml($sig_info));
 
@@ -280,41 +294,21 @@ sub _make_signature_xml {
 </dsig:Signature>};
 }
 
-
-sub rsa_signature {
-    my($self, $plaintext, $eol) = @_;
-
-    $eol //= "\n";
-
-    my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($self->key_text);
-    $rsa_key->use_pkcs1_padding();
-
-    my $bin_signature = $rsa_key->sign($plaintext);
-    return encode_base64($bin_signature, $eol);
-}
-
-
-sub _verify_rsa_signature {
-    my($self, $plaintext, $signature) = @_;
-    my $rsa_cert = Crypt::OpenSSL::RSA->new_public_key($self->pub_key_text);
-    $rsa_cert->use_pkcs1_padding();
-    my $bin_sig = decode_base64($signature);
-    return $rsa_cert->verify($plaintext, $bin_sig);
-}
-
-
 sub _signed_info_xml {
     my($self, $frag_id, $frag_digest) = @_;
 
+    my $signaturemethod = $self->SignatureMethod();
+    my $digestmethod    = $self->DigestMethod();
+
     return qq{<dsig:SignedInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
             <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
-            <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+            <dsig:SignatureMethod Algorithm="${signaturemethod}" />
             <dsig:Reference URI="#${frag_id}">
                 <dsig:Transforms>
                     <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
                     <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
                 </dsig:Transforms>
-                <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+                <dsig:DigestMethod Algorithm="${digestmethod}" />
                 <dsig:DigestValue>${frag_digest}</dsig:DigestValue>
             </dsig:Reference>
         </dsig:SignedInfo>};
@@ -346,11 +340,9 @@ sub verify {
             my($frag)  = $xc->findnodes("//*[\@${id_attr}='$reference->{ref_id}']")
                 or croak "Can't find element with ${id_attr}='$reference->{ref_id}'";
 
-            my $digest_function = $digest_method_from_uri->{$reference->{digest_method}};
-
             my $c14n_frag = $self->_ec14n_xml( $frag, WITHOUT_COMMENTS, $reference->{inclusive_namespaces} );
 
-            my $digest = $self->$digest_function($c14n_frag);
+            my $digest = $reference->{digest_algorithm}->xml_digest($c14n_frag);
 
             if($digest ne $reference->{digest}) {
                 die "Digest of signed element '$reference->{ref_id}' "
@@ -373,13 +365,22 @@ sub _parse_signature {
     my $c14n_method = $xc->findvalue(q{./ds:CanonicalizationMethod/@Algorithm}, $sig_info)
         or die "Can't find CanonicalizationMethod in " . $sig->toString;
 
+    my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
+        or die "Can't find SignatureValue in " . $sig->toString;
+
     my $c14n_namespaces = [split ' ', $xc->findvalue( q{./ds:CanonicalizationMethod/exc14n:InclusiveNamespaces/@PrefixList}, $sig_info)];
 
-    my $algorithm = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
+    my $signature_method = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
         or die "Can't find SignatureMethod in " . $sig->toString;
 
-    die "Unsupported signature algorithm: '$algorithm'"
-        unless $algorithm eq $uri_rsa_sha1_sig;
+    my $signature_algorithm = Authen::NZRealMe->new_algorithm_from_SignatureMethod($signature_method);
+
+    my $plaintext = $self->_canonicalize($c14n_method, $sig_info, $c14n_namespaces);
+
+    my $pub_key_text = $self->pub_key_text;
+
+    $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $pub_key_text)
+        or die "SignedInfo block signature does not match $self->{algorithm}";
 
     my $references = [];
 
@@ -391,13 +392,11 @@ sub _parse_signature {
         $ref_uri =~ s{^#}{};
         $ref_data->{ref_id} = $ref_uri;
 
-        my($digest_method) = map { $_->to_literal } $xc->findnodes(
+        my ($digest_method) = map { $_->to_literal } $xc->findnodes(
             './ds:DigestMethod/@Algorithm',
             $ref
         ) or die "Unable to determine Signature Reference DigestMethod for $ref_uri";
-        die "Unsupported Signature DigestMethod: '$digest_method' for $ref_uri"
-            unless $digest_method_from_uri->{$digest_method};
-        $ref_data->{digest_method} = $digest_method;
+        $ref_data->{digest_algorithm} = Authen::NZRealMe->new_algorithm_from_DigestMethod($digest_method, $ref_uri);
 
         my($digest) = map { $_->to_literal } $xc->findnodes(
             './ds:DigestValue',
@@ -425,12 +424,6 @@ sub _parse_signature {
         }
         push @$references, $ref_data;
     }
-    my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
-        or die "Can't find SignatureValue in " . $sig->toString;
-    my $plaintext = $self->_canonicalize($c14n_method, $sig_info, $c14n_namespaces);
-
-    $self->_verify_rsa_signature($plaintext, $sig_val)
-        or die "SignedInfo block signature does not match";
 
     return $references;
 }
@@ -485,7 +478,6 @@ sub _slurp_file {
 
     return $text;
 }
-
 
 1;
 
@@ -585,6 +577,11 @@ object used for verifing signatures.
 If the public key is being extracted from an X509 certificate, this method is
 used to retrieve the text which defines the certificate.
 
+=head1 SUPPORTED ALGORITHMS
+
+=head3 sha1
+
+=head3 sha256
 
 =head1 SEE ALSO
 
@@ -593,7 +590,7 @@ See L<Authen::NZRealMe> for documentation index.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2010-2014 Enrolment Services, New Zealand Electoral Commission
+Copyright (c) 2010-2018 Enrolment Services, New Zealand Electoral Commission
 
 Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
 

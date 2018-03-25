@@ -78,8 +78,8 @@ my $cert_path = File::Spec->catfile(test_conf_dir(), 'sp-sign-crt.pem');
 my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
     pub_cert_file => $cert_path,
 );
-ok($signer->_verify_rsa_signature($plaintext, $sig),
-    'signature verified successfully using public key');
+ok($signer->_algorithm->verify_rsa_signature($plaintext, $sig, $signer->pub_key_text),
+    'signature verified successfully using public key from file');
 
 my $xml = Authen::NZRealMe::AuthenRequest->_request_from_uri($url);
 ok($xml, 'extracted XML request for analysis');
@@ -136,8 +136,8 @@ $plaintext = "SAMLRequest=$payload&RelayState=$relay&SigAlg=$sig_alg";
 
 $sig =~ s{%([0-9a-f]{2})}{chr(hex($1))}ieg;
 
-ok($signer->_verify_rsa_signature($plaintext, $sig),
-    'signature verified successfully using public key');
+ok($signer->_algorithm->verify_rsa_signature($plaintext, $sig, $signer->pub_key_text),
+    'signature verified successfully using public key from file');
 
 
 $xml = Authen::NZRealMe::AuthenRequest->_request_from_uri($url);
