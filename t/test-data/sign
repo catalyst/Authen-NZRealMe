@@ -8,14 +8,20 @@ use autodie;
 use FindBin;
 
 use lib $FindBin::Bin . '/../../lib';
+use lib $FindBin::Bin . '/../test-lib';
 
-use Authen::NZRealMe::XMLSig;
+use Authen::NZRealMe;
 
 my $key_file    = shift || die_usage();
 my $input_file  = shift || die_usage();
+my $algorithm   = shift || die_usage();
 my @targets     = @ARGV;
 die_usage() unless @targets;
 
+if($algorithm =~ /^(\w+)=(.+)$/) {
+    Authen::NZRealMe->register_class($1 => $2);
+    $algorithm = $1;
+}
 
 my $xml = do {
     local($/) = undef;
@@ -34,7 +40,7 @@ exit;
 
 
 sub die_usage {
-    die "$0 key_file input_file target_id\n";
+    die "$0 key_file input_file algorithm[=class] [attr=]target_id\n";
 }
 
 
@@ -46,7 +52,8 @@ sub sign_one_ref {
         ($id_attr, $target_id) = ($1, $2);
     }
 
-    my $signer = Authen::NZRealMe::XMLSig->new(
+    my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
+        algorithm => $algorithm,
         key_file  => $key_file,
         id_attr   => $id_attr,
     );
@@ -64,7 +71,8 @@ sub sign_multiple_refs {
         };
     } @_;
 
-    my $signer = Authen::NZRealMe::XMLSig->new(
+    my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
+        algorithm => $algorithm,
         key_file  => $key_file,
         id_attr   => 'wsu:Id',
     );

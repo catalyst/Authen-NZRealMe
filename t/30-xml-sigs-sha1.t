@@ -95,6 +95,10 @@ my($sig_method) = $xc->findvalue(
 );
 is($sig_method, $uri_rsa_sha1, 'signature method from SignedInfo');
 
+my $sig_algorithm = Authen::NZRealMe->new_algorithm_from_SignatureMethod($sig_method);
+isa_ok($sig_algorithm, 'Authen::NZRealMe::XMLSig::Algorithm::sha1', 'algorithm class from SignatureMethod');
+is($sig_method, $sig_algorithm->SignatureMethod(), 'signature method matches algorithm->SignatureMethod()');
+
 my($ref_uri) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/@URI}
 );
@@ -111,6 +115,10 @@ my($digest_method) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/DSIG:DigestMethod/@Algorithm}
 );
 is($digest_method, $uri_sha1, 'digest method');
+
+my $digest_algorithm = Authen::NZRealMe->new_algorithm_from_DigestMethod($digest_method);
+isa_ok($digest_algorithm, 'Authen::NZRealMe::XMLSig::Algorithm::sha1', 'algorithm class from DigestMethod');
+is($digest_method, $digest_algorithm->DigestMethod(), 'digest method matches algorithm->DigestMethod()');
 
 my($digest_from_xml) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/DSIG:DigestValue}
@@ -132,7 +140,7 @@ $sig_value_from_xml =~ s/\s+//g;
 
 my($sig_info) = $xc->findnodes(q{//DSIG:Signature/DSIG:SignedInfo});
 my $plaintext = $sig_info->toStringEC14N(0, '', [$dsig_ns]);
-my($key_text) = slurp_file($key_file);
+my($key_text) = $signer->_slurp_file($key_file);
 my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($key_text);
 $rsa_key->use_pkcs1_padding();
 my $bin_signature = $rsa_key->sign($plaintext);
@@ -143,30 +151,12 @@ is($sig_value, $sig_value_from_xml, 'base64 encoded signature');
 
 ##############################################################################
 # Verify a signature
+my $signed_xml = `$FindBin::Bin/test-data/sign $FindBin::Bin/test-conf/idp-assertion-sign-key.pem $FindBin::Bin/test-data/xml-sigs-source.xml algorithm_sha256 fourfivesix`;
 
-my $signed_xml = <<EOF;
+my $container_xml = <<EOF;
 <container>
   <comment>This bit is outside the signed area and was added after signing</comment>
-  <assertion ID="fourfivesix"><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-        <dsig:SignedInfo>
-            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-            <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-            <dsig:Reference URI="#fourfivesix">
-                <dsig:Transforms>
-                    <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-                    <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-                </dsig:Transforms>
-                <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-                <dsig:DigestValue>wfB16qskzBfaKeNLfpNcGS+WVLk=</dsig:DigestValue>
-            </dsig:Reference>
-        </dsig:SignedInfo>
-    <dsig:SignatureValue>o7arfCjHqcS9/z1+WgCZtgTcKDnA/QicjRLkjkMyJvfg/uq0HCvVcyiE2QVVMLLUlw9IUB5K/XtK
-Kv7L5WPpbuCrw8CTITnR3IV4ACKJzdEn2+XLMoUIuUn3UozybTK2ZBfbf1qFotakpW+Y0a87g3iC
-8PaCx5FJ8NvD3Nadj20vUKE0zk0ZHeDIHP1IHZ8OA86+bdCRwVr1dFbnGgBN0ejQ07CmJTXs4c5l
-2uUXrvcHYIyrnA1SdF9rRQ3sK/cALuq8voQcXlZ5Zc37yKgwuSWLVQll6/MJnx2cUOXnOLyut2TC
-z5vuwlJcx/SnFxvHmiU+4BpVYQBVnIe/0/4XKw==
-</dsig:SignatureValue>
-</dsig:Signature><attribute name="nickname">Pinetree</attribute></assertion>
+  $signed_xml
   <comment>Also outside the signed area and added after signing</comment>
 </container>
 EOF
@@ -174,7 +164,7 @@ EOF
 my $idp_cert_file = File::Spec->catfile(test_conf_dir(), 'idp-assertion-sign-crt.pem');
 my $verifier = eval {
     $sig_class->new(
-        pub_cert_text  => slurp_file($idp_cert_file),
+        pub_cert_text  => $signer->_slurp_file($idp_cert_file),
     );
 };
 is("$@", '', 'created object for verifying sigs');
@@ -195,31 +185,8 @@ ok($result, 'verify method returned true');
 ##############################################################################
 # Now try a doc with a bad signature
 
-my $tampered_xml = <<EOF;
-<container>
-  <comment>The contents of the assertion were changed after signing</comment>
-  <assertion ID="fourfivesix"><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-        <dsig:SignedInfo>
-            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-            <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-            <dsig:Reference URI="#fourfivesix">
-                <dsig:Transforms>
-                    <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-                    <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-                </dsig:Transforms>
-                <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-                <dsig:DigestValue>wfB16qskzBfaKeNLfpNcGS+WVLk=</dsig:DigestValue>
-            </dsig:Reference>
-        </dsig:SignedInfo>
-    <dsig:SignatureValue>o7arfCjHqcS9/z1+WgCZtgTcKDnA/QicjRLkjkMyJvfg/uq0HCvVcyiE2QVVMLLUlw9IUB5K/XtK
-Kv7L5WPpbuCrw8CTITnR3IV4ACKJzdEn2+XLMoUIuUn3UozybTK2ZBfbf1qFotakpW+Y0a87g3iC
-8PaCx5FJ8NvD3Nadj20vUKE0zk0ZHeDIHP1IHZ8OA86+bdCRwVr1dFbnGgBN0ejQ07CmJTXs4c5l
-2uUXrvcHYIyrnA1SdF9rRQ3sK/cALuq8voQcXlZ5Zc37yKgwuSWLVQll6/MJnx2cUOXnOLyut2TC
-z5vuwlJcx/SnFxvHmiU+4BpVYQBVnIe/0/4XKw==
-</dsig:SignatureValue>
-</dsig:Signature><attribute name="nickname">Mr 'Pinetree'</attribute></assertion>
-</container>
-EOF
+my $tampered_xml = $container_xml;
+$tampered_xml =~ s/Pinetree/Mr 'Pinetree'/;
 
 $result = eval {
     $verifier->verify($tampered_xml);
@@ -234,11 +201,3 @@ like(
 done_testing();
 
 exit;
-
-
-sub slurp_file {
-    my($filename) = @_;
-    local($/);
-    open my $fh, '<', $filename or die "open($filename): $!";
-    return <$fh>;
-}

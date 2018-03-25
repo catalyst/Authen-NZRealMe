@@ -5,7 +5,7 @@
 <samlp:StatusCode xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" Value="urn:oasis:names:tc:SAML:2.0:status:Success">
 </samlp:StatusCode>
 </samlp:Status><saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="s232bee9e49e5da3050735c11aa1e412f5a298cd28" IssueInstant="2014-05-29T20:50:52Z" Version="2.0">
-<saml:Issuer>https://test.fakeme.govt.nz/fakemetest/fakemeidp</saml:Issuer><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
+<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
         <dsig:SignedInfo>
             <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
             <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
@@ -48,7 +48,7 @@ gCNF
 </dsig:X509Certificate>
 </dsig:X509Data>
 </dsig:KeyInfo>
-</dsig:Signature><saml:Subject>
+</dsig:Signature><saml:Issuer>https://test.fakeme.govt.nz/fakemetest/fakemeidp</saml:Issuer><saml:Subject>
 <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" NameQualifier="https://test.fakeme.govt.nz/fakemetest/fakemeidp">fb015601b411971db9e258f12f4b1c107</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
 <saml:SubjectConfirmationData InResponseTo="fb015601b411971db9e258f12f4b1c107" NotOnOrAfter="2014-05-29T21:00:52Z" Recipient="https://samltest.taka.wgtn.cat-it.co.nz/saml2/acs"/></saml:SubjectConfirmation>
 </saml:Subject><saml:Conditions NotBefore="2014-05-29T20:40:52Z" NotOnOrAfter="2014-05-29T21:00:52Z">

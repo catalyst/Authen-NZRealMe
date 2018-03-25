@@ -62,6 +62,9 @@ my %class_map = (
     identity_provider       => 'Authen::NZRealMe::IdentityProvider',
     token_generator         => 'Authen::NZRealMe::TokenGenerator',
     xml_signer              => 'Authen::NZRealMe::XMLSig',
+    signer_algorithm        => 'Authen::NZRealMe::XMLSig::Algorithm',
+    algorithm_sha1          => 'Authen::NZRealMe::XMLSig::Algorithm::sha1',
+    algorithm_sha256        => 'Authen::NZRealMe::XMLSig::Algorithm::sha256',
     sp_builder              => 'Authen::NZRealMe::ServiceProvider::Builder',
     sp_cert_factory         => 'Authen::NZRealMe::ServiceProvider::CertFactory',
     resolution_request      => 'Authen::NZRealMe::ResolutionRequest',
@@ -105,6 +108,47 @@ sub class_for {
 sub register_class {
     my($class, $key, $package) = @_;
     $class_map{$key} = $package;
+}
+
+sub _algorithm_classes {
+    my $class = shift;
+    my @classes;
+    foreach my $algorithm (grep { /^algorithm_/ } keys %class_map) {
+        push @classes, $class->class_for($algorithm);
+    }
+    return @classes;
+}
+
+sub new_algorithm_from_SignatureMethod {
+    my($self, $signature_method) = @_;
+
+    my $algorithm_class;
+    foreach my $class (Authen::NZRealMe->_algorithm_classes()) {
+        next unless $signature_method eq $class->SignatureMethod();
+        $algorithm_class = $class;
+        last;
+    }
+
+    die "Unsupported SignatureMethod Algorithm: '$signature_method'"
+        unless $algorithm_class;
+
+    return $algorithm_class->new();
+}
+
+sub new_algorithm_from_DigestMethod {
+    my ($self, $digest_method, $ref_uri) = @_;
+
+    my $algorithm_class;
+    foreach my $class (Authen::NZRealMe->_algorithm_classes()) {
+        next unless $digest_method eq $class->DigestMethod();
+        $algorithm_class = $class;
+        last;
+    }
+
+    die "Unsupported DigestMethod Algorithm: '$digest_method' for $ref_uri"
+        unless $algorithm_class;
+
+    return $algorithm_class->new();
 }
 
 
@@ -661,6 +705,28 @@ This method is called by the C<nzrealme> command-line tool, to delegate tasks to
 the appropriate classes.  For more information about available commands, see
 C<< nzrealme --help >>
 
+=head2 new_algorithm_from_SignatureMethod( signature_method )
+
+Constructor for algorithm using the value obtained from the
+C<Algorithm> attribute of an XML element called C<ds:SignatureMethod>.
+
+The attribute value must match one of the supported algorithm_*
+classes that matches their SignatureMethod setting.
+
+  my $algorithm = Authen::NZRealMe->new_algorithm_from_SignatureMethod($signature_method);
+
+=head2 new_algorithm_from_DigestMethod( digest_method, ref_uri )
+
+Constructor for algorithm using the value obtained from the
+C<Algorithm> attribute of an XML element called C<ds:DigestMethod>.
+
+The attribute value must match one of the supported algorithm_*
+classes that matches their DigestMethod setting.
+
+  my $algorithm = Authen::NZRealMe->new_algorithm_from_DigestMethod($digest_method, $ref_uri);
+
+Method dies if no matching algorithm found with a message that includes C<ref_uri>.
+
 =cut
 
 =head2 Related Classes
@@ -715,6 +781,18 @@ L<Authen::NZRealMe::TokenGenerator>
 =item *
 
 L<Authen::NZRealMe::XMLSig>
+
+=item *
+
+L<Authen::NZRealMe::XMLSig::Algorithm>
+
+=item *
+
+L<Authen::NZRealMe::XMLSig::Algorithm::sha1>
+
+=item *
+
+L<Authen::NZRealMe::XMLSig::Algorithm::sha256>
 
 =back
 
