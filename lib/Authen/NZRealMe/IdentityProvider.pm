@@ -58,13 +58,13 @@ sub artifact_resolution_location {
 
 
 sub verify_signature {
-    my($self, $xml) = @_;
+    my($self, $xml, %options) = @_;
 
     eval {
         my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
             pub_cert_text => $self->signing_cert_pem_data(),
         );
-        $verifier->verify($xml);
+        $verifier->verify($xml, %options);
     };
     if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";

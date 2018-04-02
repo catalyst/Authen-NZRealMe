@@ -86,8 +86,9 @@ sub new {
     my $class = shift;
 
     my $self = bless {
-        type                  => 'login',
-        skip_signature_check  => 0,
+        type                     => 'login',
+        skip_signature_check     => 0,
+        inline_certificate_check => 'fallback',
         @_
     }, $class;
 
@@ -123,7 +124,6 @@ sub organization_url       { shift->{organization_url};       }
 sub contact_company        { shift->{contact_company};        }
 sub contact_first_name     { shift->{contact_first_name};     }
 sub contact_surname        { shift->{contact_surname};        }
-sub skip_signature_check   { shift->{skip_signature_check};   }
 sub _x                     { shift->{x};                      }
 sub nameid_format          { return $urn_nameid_format{ shift->type };         }
 sub signing_cert_pathname  { shift->{conf_dir} . '/' . $signing_cert_filename; }
@@ -131,6 +131,9 @@ sub signing_key_pathname   { shift->{conf_dir} . '/' . $signing_key_filename;  }
 sub ssl_cert_pathname      { shift->{conf_dir} . '/' . $ssl_cert_filename;     }
 sub ssl_key_pathname       { shift->{conf_dir} . '/' . $ssl_key_filename;      }
 sub ca_cert_pathname       { shift->{conf_dir} . '/' . $ca_cert_directory;     }
+
+sub skip_signature_check     { shift->{skip_signature_check};     }
+sub inline_certificate_check { shift->{inline_certificate_check}; }
 
 sub idp {
     my $self = shift;
@@ -676,7 +679,7 @@ sub _verify_assertion_signature {
     return if $skip_type > 1;
 
     eval {
-        $idp->verify_signature($xml);
+        $idp->verify_signature($xml, inline_certificate_check => $self->inline_certificate_check);
     };
     return unless $@;  # Signature was good
 
@@ -1211,6 +1214,20 @@ without needing to coordinate your timing exactly with the IdP service.
 
 Setting this option to 2 will completely skip signature checks (i.e. no errors
 or warnings will be generated).
+
+=item inline_certificate_check => [ 'fallback' | 'never' | 'always' ]
+
+This option allows you to control how verification of digital
+signatures use the included X509 Certificate in the response from the
+IdP.  The default value is 'fallback' - meaning the included
+certificate will be checked but there is an error, then the stored
+certificate will be used to check.
+
+If set to 'never', only the stored certificate will be used to
+check. The included certificate is ignored completely.
+
+Setting this option to 'always' will only use the included
+certificate. No stored certificate will be used.
 
 =back
 

@@ -159,7 +159,8 @@ my $verifier = eval {
 is("$@", '', 'created object for verifying sigs');
 
 my $result = eval {
-    $verifier->verify($signed_xml);
+    $verifier->verify($signed_xml,
+                      inline_certificate_check => 'never');
 };
 is("$@", '', 'verified sigs without throwing exception');
 ok($result, 'verify method returned true');
@@ -172,7 +173,8 @@ my $tampered_xml = $container_xml;
 $tampered_xml =~ s/Pinetree/Mr 'Pinetree'/;
 
 $result = eval {
-    $verifier->verify($tampered_xml);
+    $verifier->verify($tampered_xml,
+                      inline_certificate_check => 'never');
 };
 is($result, undef, 'verification of signed-but-tampered document failed');
 like(
