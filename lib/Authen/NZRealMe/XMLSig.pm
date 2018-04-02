@@ -316,7 +316,10 @@ sub _signed_info_xml {
 
 
 sub verify {
-    my($self, $xml) = @_;
+    my($self, $xml, %options) = @_;
+
+    my $inline_certificate_check = $options{inline_certificate_check} // ''
+      or die "No inline_certificate_check option set in verify()";
 
     my $doc = $self->_xml_to_dom($xml);
     my $xc  = XML::LibXML::XPathContext->new($doc);
@@ -328,7 +331,7 @@ sub verify {
 
     my @signature_blocks;
     foreach my $sig ( $xc->findnodes(q{//ds:Signature[not(ancestor::soap:Body)]}) ) { # Exclude signatures encapsulated in the SOAP body
-        push @signature_blocks, $self->_parse_signature($xc, $sig);
+        push @signature_blocks, $self->_parse_signature($xc, $sig, lc($inline_certificate_check));
         $sig->parentNode->removeChild($sig);
     }
     croak "XML document contains no signatures" unless @signature_blocks;
@@ -356,8 +359,30 @@ sub verify {
     return 1;
 }
 
-sub _parse_signature {
+sub parse_inline_pub_key_text_cert {
     my($self, $xc, $sig) = @_;
+
+    # extract public key provided in the XML, if present
+    my $pub_key_text;
+    if (my $cert_text = $xc->findvalue(q{./ds:KeyInfo/ds:X509Data/ds:X509Certificate}, $sig)) {
+        # Strip whitespace and re-wrap base64 encoded data to 64 chars per line
+        $cert_text =~ s{\s+}{}g;
+        my @cert_parts = $cert_text =~ m{(\S{1,64})}g;
+        $cert_text = join(
+            "\n",
+            '-----BEGIN CERTIFICATE-----',
+            @cert_parts,
+            '-----END CERTIFICATE-----',
+        ) . "\n";
+        my $x509 = Crypt::OpenSSL::X509->new_from_string($cert_text);
+        $pub_key_text = $x509->pubkey();
+    }
+
+    return $pub_key_text;
+}
+
+sub _parse_signature {
+    my($self, $xc, $sig, $inline_certificate_check) = @_;
 
     my($sig_info) = $xc->findnodes(q{./ds:SignedInfo}, $sig)
         or die "Can't verify a signature without a 'SignedInfo' element";
@@ -377,10 +402,27 @@ sub _parse_signature {
 
     my $plaintext = $self->_canonicalize($c14n_method, $sig_info, $c14n_namespaces);
 
-    my $pub_key_text = $self->pub_key_text;
+    my $verified;
+    if ($inline_certificate_check eq 'never') {
+        # Only use the stored certificate
+        $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $self->pub_key_text);
+    }
+    elsif ($inline_certificate_check eq 'fallback' or $inline_certificate_check eq 'always') {
+        my $inline_pub_key_text = $self->parse_inline_pub_key_text_cert($xc, $sig);
+        eval {
+            $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $inline_pub_key_text);
+            1;
+        } or do {
+            if ($inline_certificate_check eq 'fallback') {
+                $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $self->pub_key_text);
+            }
+        };
+    }
+    else {
+        die "Unrecognised value for inline_certificate_check: $inline_certificate_check";
+    }
 
-    $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $pub_key_text)
-        or die "SignedInfo block signature does not match $self->{algorithm}";
+    die "SignedInfo block signature does not match $signature_method" unless $verified;
 
     my $references = [];
 
@@ -493,7 +535,7 @@ sub _slurp_file {
       pub_cert_text => $self->signing_cert_pem_data(),
   );
 
-  $verifier->verify($xml);
+  $verifier->verify($xml, inline_certificate_check => '...');
 
 =head1 METHODS
 
@@ -554,10 +596,15 @@ passed to the constructor and returns a base64-encoded string. The C<$eol>
 parameter can be used to specify the line-ending character used in the base64
 encoding process (default: \n).
 
-=head2 verify( $xml )
+=head2 verify( $xml, inline_certificate_check => 'fallback' | 'always' | 'never' )
 
-Takes an XML string (or DOM object); searches for signature elements; verifies
-the provided signature and message digest for each; and returns true on success.
+Takes an XML string (or DOM object); searches for signature elements;
+ verifies the provided signature and message digest for each; and
+ returns true on success.
+
+The C<inline_certificate_check> option determines whether a
+certificate in the XML and/or a stored certificate is used in the
+signature verification.
 
 If the provided document does not contain any signatures, or if an invalid
 signature is found, an exception will be thrown.

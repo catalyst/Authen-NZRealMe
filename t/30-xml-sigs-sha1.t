@@ -170,13 +170,36 @@ my $verifier = eval {
 is("$@", '', 'created object for verifying sigs');
 
 my $result = eval {
-    $verifier->verify('<document><title>Unsigned XML</title></document>');
+    $verifier->verify('<document><title>Unsigned XML</title></document>',
+                      inline_certificate_check => 'fallback');
 };
 is($result, undef, 'verification of unsigned document failed');
 like("$@", qr{document contains no signatures}, 'with appropriate message');
 
 $result = eval {
-    $verifier->verify($signed_xml);
+    $verifier->verify($signed_xml,
+                      inline_certificate_check => 'yes');
+};
+is($result, undef, 'verification of unsigned document failed');
+like("$@", qr{Unrecognised value for inline_certificate_check}, 'with appropriate message');
+
+$result = eval {
+    $verifier->verify($signed_xml,
+                      inline_certificate_check => 'always');
+};
+is($result, undef, 'verification of signed document with invalid inline certificate failed');
+like("$@", qr{SignedInfo block signature}, 'with appropriate message');
+
+$result = eval {
+    $verifier->verify($signed_xml,
+                      inline_certificate_check => 'fallback');
+};
+is("$@", '', 'verified sigs without throwing exception despite invalid inline certificate');
+ok($result, 'verify method returned true');
+
+$result = eval {
+    $verifier->verify($signed_xml,
+                      inline_certificate_check => 'never');
 };
 is("$@", '', 'verified sigs without throwing exception');
 ok($result, 'verify method returned true');
@@ -189,7 +212,8 @@ my $tampered_xml = $container_xml;
 $tampered_xml =~ s/Pinetree/Mr 'Pinetree'/;
 
 $result = eval {
-    $verifier->verify($tampered_xml);
+    $verifier->verify($tampered_xml,
+                      inline_certificate_check => 'never');
 };
 is($result, undef, 'verification of signed-but-tampered document failed');
 like(
