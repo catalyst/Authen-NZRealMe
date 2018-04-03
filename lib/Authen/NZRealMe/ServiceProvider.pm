@@ -379,11 +379,12 @@ sub metadata_xml {
 
 
 sub _sign_xml {
-    my($self, $xml, $target_id) = @_;
-
-    my $signer = $self->_signer();
-
-    return $signer->sign($xml, $target_id);
+    my $self      = shift;
+    my $algorithm = shift;
+    my %options;
+    $options{algorithm} = 'algorithm_' . $algorithm if $algorithm;
+    my $signer = $self->_signer(%options);
+    return $signer->sign(@_);
 }
 
 
@@ -401,18 +402,16 @@ sub sign_query_string {
 
 
 sub _signer {
-    my($self, $id_attr) = @_;
+    my($self, %options) = @_;
 
     my $key_path = $self->signing_key_pathname
         or die "No path to signing key file";
 
-    my %options = (
+    return Authen::NZRealMe->class_for('xml_signer')->new(
         pub_cert_file => $self->signing_cert_pathname,
-        key_file      => $key_path
+        key_file      => $key_path,
+        %options,
     );
-    $options{id_attr} = $id_attr if $id_attr;
-
-    return Authen::NZRealMe->class_for('xml_signer')->new( %options );
 }
 
 
@@ -525,7 +524,7 @@ sub _extract_flt {
             pub_cert_text => $idp->login_cert_pem_data(),
             id_attr       => 'wsu:Id',
         );
-        $verifier->verify($xml);
+        $verifier->verify($xml, inline_certificate_check => $self->inline_certificate_check);
     };
     if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";

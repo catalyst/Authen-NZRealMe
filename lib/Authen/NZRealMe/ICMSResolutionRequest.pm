@@ -29,7 +29,7 @@ sub new {
 
     my $self = bless {
         icms_token   => $icms_token,
-        signer       => $sp->_signer('wsu:Id'),
+        signer       => $sp->_signer(id_attr => 'wsu:Id'),
         method_data  => $sp->_icms_method_data( 'Validate' ),
     }, $class;
 
@@ -131,10 +131,11 @@ sub _generate_flt_resolve_doc {
 }
 
 sub _sign_xml {
-    my($self, $xml, $target_ids) = @_;
+    my $self = shift;
 
     my $signer = $self->_signer;
-    return $signer->sign_multiple_targets($xml, $target_ids);
+    my $content = $signer->sign_multiple_targets(@_);
+    return $content;
 }
 
 1;

@@ -83,7 +83,8 @@ sub xml_digest {
 
     my $digest = $self->encrypt($xml);
 
-    return encode_base64($digest, '');
+    my $b64 = encode_base64($digest, '');
+    return $b64;
 }
 
 =head2 rsa_signature (private_key_text, plaintext, eol)
@@ -103,7 +104,8 @@ sub rsa_signature {
     $self->sign_options($rsa_key);
 
     my $bin_signature = $rsa_key->sign($plaintext);
-    return encode_base64($bin_signature, $eol);
+    my $sig_val = encode_base64($bin_signature, $eol);
+    return $sig_val;
 }
 
 =head2 verify_rsa_signature (plaintext, signature, public_key_text)
