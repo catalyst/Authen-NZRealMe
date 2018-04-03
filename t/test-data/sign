@@ -12,11 +12,16 @@ use lib $FindBin::Bin . '/../test-lib';
 
 use Authen::NZRealMe;
 
+require XML::LibXML;
+require XML::LibXML::XPathContext;
+
 my $key_file    = shift || die_usage();
 my $input_file  = shift || die_usage();
 my $algorithm   = shift || die_usage();
+my $pub_cert_file = shift if -f $ARGV[0];
+my $command     = shift || die_usage();
+
 my @targets     = @ARGV;
-die_usage() unless @targets;
 
 if($algorithm =~ /^(\w+)=(.+)$/) {
     Authen::NZRealMe->register_class($1 => $2);
@@ -29,20 +34,62 @@ my $xml = do {
     <$fh>;
 };
 
-if(@targets == 1) {
+
+if($command eq 'rsa_signature') {
+    rsa_signature(@targets);
+}
+elsif($command eq 'xml_digest') {
+    xml_digest(@targets);
+}
+elsif($command eq 'sign_one_ref') {
     sign_one_ref(@targets);
 }
-else {
+elsif($command eq 'sign_multiple_refs') {
     sign_multiple_refs(@targets);
+}
+else {
+    die_usage();
 }
 
 exit;
 
 
 sub die_usage {
-    die "$0 key_file input_file algorithm[=class] [attr=]target_id\n";
+    die
+      "$0 key_file input_file algorithm[=class] [pub_cert_file] sign_one_ref [attr=]target_id\n" .
+      "$0 key_file input_file algorithm[=class] [pub_cert_file] sign_multiple_refs [target_id ...]\n" .
+      "$0 key_file input_file algorithm[=class] [pub_cert_file] rsa_signature [namespaces ...]\n".
+      "$0 key_file input_file algorithm[=class] [pub_cert_file] xml_digest [namespaces ...]\n";
 }
 
+
+sub xml_digest {
+    my @namespaces = @_;
+
+    my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
+        algorithm => $algorithm,
+        key_file  => $key_file,
+        pub_cert_file => $pub_cert_file,
+    );
+    print "original form:\n$xml\n@namespaces\n";
+    my $canonical = $signer->_ec14n_xml($xml, '', \@namespaces);
+    print "canonical form:\n$canonical\n";
+    print $signer->xml_digest($canonical) . "\n";
+}
+
+sub rsa_signature {
+    my @namespaces = @_;
+
+    my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
+        algorithm => $algorithm,
+        key_file  => $key_file,
+        pub_cert_file => $pub_cert_file,
+    );
+    print "original form:\n$xml\n@namespaces\n";
+    my $canonical = $signer->_ec14n_xml($xml, '', \@namespaces);
+    print "canonical form:\n$canonical\n";
+    print $signer->rsa_signature($canonical) . "\n";
+}
 
 sub sign_one_ref {
     my($target_id) = @_;
@@ -56,28 +103,36 @@ sub sign_one_ref {
         algorithm => $algorithm,
         key_file  => $key_file,
         id_attr   => $id_attr,
+        pub_cert_file => $pub_cert_file,
     );
 
-    print $signer->sign($xml, $target_id);
+    print $signer->sign($xml, $target_id, include_x509 => 1) . "\n";
 }
 
 
 sub sign_multiple_refs {
-    # Haven't managed to make this work yet :-(
-    my @target_refs = map {
-        {
-            id          => $_,
-            namespaces  => ['soap'],
-        };
-    } @_;
+    my @id_namespaces = @_;
+
+    my @target_ids;
+    foreach my $id_ns (@id_namespaces) {
+        my %target;
+        if ($id_ns =~ /^(.+)=(.+)$/) {
+            $target{id}         = $1;
+            $target{namespaces} = [split /,/, $2];
+        }
+        else {
+            $target{id} = $id_ns;
+        }
+        push @target_ids, \%target;
+    }
 
     my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
         algorithm => $algorithm,
         key_file  => $key_file,
         id_attr   => 'wsu:Id',
+        pub_cert_file => $pub_cert_file,
     );
-
-    print $signer->sign_multiple_targets($xml, \@target_refs);
+    print $signer->sign_multiple_targets($xml, \@target_ids);
 }
 
 

@@ -24,6 +24,13 @@ my @namespaces = (
     [ nssaml    => 'urn:oasis:names:tc:SAML:2.0:assertion' ],
     [ nssamlp   => 'urn:oasis:names:tc:SAML:2.0:protocol' ],
     [ nssoapenv => 'http://schemas.xmlsoap.org/soap/envelope/' ],
+    [ soap  => "http://www.w3.org/2003/05/soap-envelope" ],
+    [ wsse  => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" ],
+    [ wsu   => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" ],
+    [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512" ],
+    [ wsa   => "http://www.w3.org/2005/08/addressing" ],
+    [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ],
+    [ ds    => "http://www.w3.org/2000/09/xmldsig#" ],
 );
 
 my $Test = Test::Builder->new();
@@ -77,6 +84,10 @@ sub xml_node_content_is {
             $msg = "expected 1 match, found: " . @nodes;
         }
     }
+    else {
+        $msg = "parsing SAML XML failed";
+    }
+
     $Test->ok($ok, $desc);
     $Test->diag($msg) if $msg;
 }

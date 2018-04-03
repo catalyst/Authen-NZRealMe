@@ -5,50 +5,7 @@
 <samlp:StatusCode xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" Value="urn:oasis:names:tc:SAML:2.0:status:Success">
 </samlp:StatusCode>
 </samlp:Status><saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" ID="s232bee9e49e5da3050735c11aa1e412f5a298cd28" IssueInstant="2014-05-29T20:50:52Z" Version="2.0">
-<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-        <dsig:SignedInfo>
-            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-            <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
-            <dsig:Reference URI="#s232bee9e49e5da3050735c11aa1e412f5a298cd28">
-                <dsig:Transforms>
-                    <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
-                    <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
-                </dsig:Transforms>
-                <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
-                <dsig:DigestValue>xReppELzBkxVTck/G0Ps6gDOGxA=</dsig:DigestValue>
-            </dsig:Reference>
-        </dsig:SignedInfo>
-    <dsig:SignatureValue>NboUAPyKAAusmp8pG1RY+U2qqWRkPRxFK/q6kitMNEifYmxapCssYPHQtHBf8xS5E1txpvMfSW/R
-VxYw7RnR53sXj4/hUl48h/bIT867cnAzrHzXivpkhGmIYUgHm5RIY0UFYZLEWrDrTkpLgDwNThLl
-BQdYZa3zOH/PcXmZKelbc1twAY60NrZ3Wd61RCigrY5CKS1FldCkdikgq/1dnp40P/gWZFQn+L9B
-TMd7k5Lvpq/9X6EUoQm//pflWXiKPq6K9h6Fv8EyW2FVbUnFVJ5g0bKGUPcMk8sk9PMQu6S0NCfW
-k3YGo67HtDxsr4UE4tLI/FYg6zVDi3kG4KLxEg==
-</dsig:SignatureValue>
-<dsig:KeyInfo>
-<dsig:X509Data>
-<dsig:X509Certificate>
-MIIDLzCCAhegAwIBAgIJAJys5okjA3N3MA0GCSqGSIb3DQEBBQUAMC4xLDAqBgNV
-BAMMI3Rlc3Quc2lnbmluZy5hY2NvdW50LmZha2VtZS5nb3Z0Lm56MB4XDTE0MDUz
-MDAwNTkwMFoXDTE0MDYyOTAwNTkwMFowLjEsMCoGA1UEAwwjdGVzdC5zaWduaW5n
-LmFjY291bnQuZmFrZW1lLmdvdnQubnowggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAw
-ggEKAoIBAQDNQWtXKquqhfJt/X8C8Gyg9+2LrhcCvQdyXnTVAITItV1kTk+l2tze
-QNo7yU0Z9i692Gn+UBobPoRwmHgCXu6ZyKxH1qOBqwnqyhhezYSQNm8ReBaSPlP1
-yYswDvY+/N9MBAcZvCt8BSNz4Tsv+gP7WrHOx5U0zrSkVcEGhaCcLFsdo3R2SMFP
-xvVpRmIqRPKzyANZqyoMtoRnIhxyuppaO1fSKvy1TG0SK7dLDVWIn2NPMZMpvZsG
-9JorBAeit5nO/eE8GSxe/i8lvjIuZS/Rc57+71RmeemFz+MbIGZ4tU+YqY0SupXz
-24E0dIsMzSl3rXEU/VD9L4etaxz0pz4ZAgMBAAGjUDBOMB0GA1UdDgQWBBQfsK+Y
-Bi2/Vk+Fvyc22UEvhx1QQTAfBgNVHSMEGDAWgBQfsK+YBi2/Vk+Fvyc22UEvhx1Q
-QTAMBgNVHRMEBTADAQH/MA0GCSqGSIb3DQEBBQUAA4IBAQBXgE/zv3lWxf7e3nGc
-Xpl6JBPv2cB7nwDjeoDxRwx2oThuRoFLtrFmjonrUZIMUWapUBGA+/WjMlq9GuB2
-a1UUx4izOPX9QDHzPTewuDO4tiyI+vTXrXno+8CW7wOi9OwOVaiY8X677nPhJUIP
-LBcBdweYxC7nLdhNLKEXMyRXlg/mD5ACDQAAiUbs/yx3Br4K3YQyM7oZOCAfJR4+
-whCR4OTRYNM1bH7LQNM88N6EPyRnkP3mJpu0HH2wNFOc1hfF2hq9Icwu3VhsQLnm
-nv8TV6OwdEoqMNCPozBegc27rf6AixerOnOJk1hMVLq4GM3Dy0O1qPC3tniFbzUv
-gCNF
-</dsig:X509Certificate>
-</dsig:X509Data>
-</dsig:KeyInfo>
-</dsig:Signature><saml:Issuer>https://test.fakeme.govt.nz/fakemetest/fakemeidp</saml:Issuer><saml:Subject>
+<saml:Issuer>https://test.fakeme.govt.nz/fakemetest/fakemeidp</saml:Issuer><saml:Subject>
 <saml:NameID Format="urn:oasis:names:tc:SAML:2.0:nameid-format:transient" NameQualifier="https://test.fakeme.govt.nz/fakemetest/fakemeidp">fb015601b411971db9e258f12f4b1c107</saml:NameID><saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">
 <saml:SubjectConfirmationData InResponseTo="fb015601b411971db9e258f12f4b1c107" NotOnOrAfter="2014-05-29T21:00:52Z" Recipient="https://samltest.taka.wgtn.cat-it.co.nz/saml2/acs"/></saml:SubjectConfirmation>
 </saml:Subject><saml:Conditions NotBefore="2014-05-29T20:40:52Z" NotOnOrAfter="2014-05-29T21:00:52Z">

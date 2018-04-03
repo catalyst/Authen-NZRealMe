@@ -151,7 +151,7 @@ is($sig_value, $sig_value_from_xml, 'base64 encoded signature');
 
 ##############################################################################
 # Verify a signature
-my $signed_xml = `$FindBin::Bin/test-data/sign $FindBin::Bin/test-conf/idp-assertion-sign-key.pem $FindBin::Bin/test-data/xml-sigs-source.xml algorithm_sha256 fourfivesix`;
+my $signed_xml = `$FindBin::Bin/test-data/sign $FindBin::Bin/test-conf/idp-assertion-sign-key.pem $FindBin::Bin/test-data/xml-sigs-source.xml algorithm_sha256 sign_one_ref fourfivesix`;
 
 my $container_xml = <<EOF;
 <container>
@@ -180,8 +180,8 @@ $result = eval {
     $verifier->verify($signed_xml,
                       inline_certificate_check => 'yes');
 };
-is($result, undef, 'verification of unsigned document failed');
-like("$@", qr{Unrecognised value for inline_certificate_check}, 'with appropriate message');
+is($result, undef, 'verification of signed document failed');
+like("$@", qr{Unrecognised value for inline_certificate_check}, $signed_xml .'with appropriate message');
 
 $result = eval {
     $verifier->verify($signed_xml,

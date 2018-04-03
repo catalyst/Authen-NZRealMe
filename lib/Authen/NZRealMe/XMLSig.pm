@@ -77,7 +77,7 @@ sub xml_digest {
 }
 
 sub sign {
-    my($self, $xml, $target_id) = @_;
+    my($self, $xml, $target_id, %options) = @_;
 
     my $doc      = $self->_xml_to_dom($xml);
     $target_id   ||= $self->default_target_id($doc);
@@ -85,8 +85,11 @@ sub sign {
     my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
         or croak "Can't find element with ${id_attr}='${target_id}'";
 
-    my $sig_xml  = $self->_make_signature_xml($target, $target_id);
-    my $sig_frag = $self->_xml_to_dom($sig_xml);
+    my $sig_info  = $self->_make_signed_info($target, $target_id);
+    my $sig_value = $self->rsa_signature($self->_ec14n_xml($sig_info));
+
+    my $sig_xml   = $self->_make_signature_xml($sig_info, $sig_value, %options);
+    my $sig_frag  = $self->_xml_to_dom($sig_xml);
 
     if($target->hasChildNodes()) {
         $target->insertBefore($sig_frag, $target->firstChild);
@@ -139,7 +142,7 @@ sub sign_multiple_targets {
     # Insert whole block as the last element in the soap:Header section
     my $sig_dom = $self->_xml_to_dom($signature_block);
     my $xc     = XML::LibXML::XPathContext->new( $doc );
-    foreach my $ns ( [$ns_soap, $ns_wsse] ) {
+    foreach my $ns ( ($ns_soap, $ns_wsse) ) {
         $xc->registerNs( @$ns );
     }
     my ( $security_node ) = $xc->findnodes("/soap:Envelope/soap:Header/wsse:Security");
@@ -210,8 +213,13 @@ sub _generate_reference_block {
 sub _generate_ec14n_xml {
     my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
     my $id_attr  = $self->id_attr;
-    my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
-            or croak "Can't find element with ${id_attr}='${target_id}'";
+    my $xc     = XML::LibXML::XPathContext->new( $doc );
+    foreach my $ns ( $ns_wsu ) { #($ns_soap, $ns_wsse, $ns_wsu) ) {
+        $xc->registerNs( @$ns );
+    }
+    my($target)  = eval {
+        $xc->findnodes("//*[\@${id_attr}='${target_id}']")
+    } or croak "Can't find element with ${id_attr}='${target_id}'\n$@";
 
     return $self->_ec14n_xml($target, WITHOUT_COMMENTS, $inclusive_namespaces);
 }
@@ -280,18 +288,38 @@ sub _xml_to_dom {
 }
 
 
-sub _make_signature_xml {
+sub _make_signed_info {
     my($self, $frag, $id) = @_;
 
     my $c14n_frag  = $self->_ec14n_xml($frag);
     my $digest     = $self->xml_digest($c14n_frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
-    my $sig_value  = $self->rsa_signature($self->_ec14n_xml($sig_info));
+
+    return $sig_info;
+}
+
+
+sub _make_signature_xml {
+    my($self, $sig_info, $sig_value, %options) = @_;
+
+    my $x509_certificate = '';
+    if ($options{include_x509} && ($self->{pub_cert_file} || $self->{pub_cert_text})) {
+        my $pub_cert_text = $self->pub_cert_text or die "No Public Key certificate defined";
+        $pub_cert_text =~ s/^-----.*\n//mg;
+
+        $x509_certificate = qq{<dsig:KeyInfo>
+<dsig:X509Data>
+<dsig:X509Certificate>
+${pub_cert_text}</dsig:X509Certificate>
+</dsig:X509Data>
+</dsig:KeyInfo>
+};
+    }
 
     return qq{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
         ${sig_info}
     <dsig:SignatureValue>${sig_value}</dsig:SignatureValue>
-</dsig:Signature>};
+${x509_certificate}</dsig:Signature>};
 }
 
 sub _signed_info_xml {
@@ -313,7 +341,6 @@ sub _signed_info_xml {
             </dsig:Reference>
         </dsig:SignedInfo>};
 }
-
 
 sub verify {
     my($self, $xml, %options) = @_;
@@ -393,7 +420,8 @@ sub _parse_signature {
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
 
-    my $c14n_namespaces = [split ' ', $xc->findvalue( q{./ds:CanonicalizationMethod/exc14n:InclusiveNamespaces/@PrefixList}, $sig_info)];
+    my $c14n_prefix_list = $xc->findvalue( q{./ds:CanonicalizationMethod/exc14n:InclusiveNamespaces/@PrefixList}, $sig_info);
+    my $c14n_namespaces = [split ' ', $c14n_prefix_list];
 
     my $signature_method = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
         or die "Can't find SignatureMethod in " . $sig->toString;
@@ -407,16 +435,21 @@ sub _parse_signature {
         # Only use the stored certificate
         $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $self->pub_key_text);
     }
-    elsif ($inline_certificate_check eq 'fallback' or $inline_certificate_check eq 'always') {
-        my $inline_pub_key_text = $self->parse_inline_pub_key_text_cert($xc, $sig);
-        eval {
+    elsif ($inline_certificate_check eq 'always') {
+        if (my $inline_pub_key_text = $self->parse_inline_pub_key_text_cert($xc, $sig)) {
             $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $inline_pub_key_text);
-            1;
-        } or do {
-            if ($inline_certificate_check eq 'fallback') {
-                $verified = $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $self->pub_key_text);
-            }
-        };
+        }
+    }
+    elsif ($inline_certificate_check eq 'fallback') {
+        # check using inline certificate first, if any
+        if (my $inline_pub_key_text = $self->parse_inline_pub_key_text_cert($xc, $sig)) {
+            $verified = eval {
+                $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $inline_pub_key_text);
+            };
+        }
+
+        # check using stored certificate, if not already verified
+        $verified //= $signature_algorithm->verify_rsa_signature($plaintext, $sig_val, $self->pub_key_text);
     }
     else {
         die "Unrecognised value for inline_certificate_check: $inline_certificate_check";
