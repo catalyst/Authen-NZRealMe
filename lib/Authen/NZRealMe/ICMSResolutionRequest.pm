@@ -9,17 +9,19 @@ require Data::UUID;
 use POSIX        qw(strftime);
 use Digest::MD5  qw(md5_hex);
 
+use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
 
-my $ns_soap     = [ soap  => "http://www.w3.org/2003/05/soap-envelope" ];
-my $ns_wsse     = [ wsse  => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" ];
-my $ns_wsu      = [ wsu   => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" ];
-my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512" ];
-my $ns_wsa      = [ wsa   => "http://www.w3.org/2005/08/addressing" ];
-my $ns_icms     = [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ];
 
-my $request_type_urn = 'http://docs.oasis-open.org/ws-sx/ws-trust/200512/Validate';
-my $token_type_urn   = 'http://docs.oasis-open.org/wss/oasis-wss-saml-token-profile-1.1#SAMLV2.0';
-my $addressing_urn   = 'http://www.w3.org/2005/08/addressing/anonymous';
+my $ns_soap12     = [ NS_PAIR('soap12') ];
+my $ns_wsse       = [ NS_PAIR('wsse') ];
+my $ns_wsu        = [ NS_PAIR('wsu') ];
+my $ns_wst        = [ NS_PAIR('wst') ];
+my $ns_wsa        = [ NS_PAIR('wsa') ];
+my $ns_icms       = [ NS_PAIR('icms') ];
+
+my $wst_validate  = URI('wst_validate');
+my $wss_saml2     = URI('wss_saml2');
+my $wsa_anon      = URI('wsa_anon');
 
 
 sub new {
@@ -85,7 +87,7 @@ sub _generate_flt_resolve_doc {
             id          => $sp->generate_saml_id('wsa:Timestamp'),
         },
         Body      =>  {
-            id          => $sp->generate_saml_id('soap:Body'),
+            id          => $sp->generate_saml_id('soap12:Body'),
         },
     };
 
@@ -99,25 +101,25 @@ sub _generate_flt_resolve_doc {
         escape => 'unescaped',  # So we can insert other document bits usefully
     );
 
-    my $soap_request = $x->Envelope($ns_soap,
-        $x->Header($ns_soap,
+    my $soap_request = $x->Envelope($ns_soap12,
+        $x->Header($ns_soap12,
             $x->Action( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{Action}->{id}}, $method_data->{operation}),
             $x->MessageID( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{MessageID}->{id}}, $self->request_id),
             $x->To( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{To}->{id}}, $method_data->{url}),
             $x->ReplyTo( [@$ns_wsa, @$ns_wsu], {'wsu:Id' => $signed_parts->{ReplyTo}->{id}},
-                $x->Address( $ns_wsa, $addressing_urn ),
+                $x->Address( $ns_wsa, $wsa_anon ),
             ),
-            $x->Security( [@$ns_wsse, @$ns_wsu], {'soap:mustUnderstand' => 'true'},  # Populated by signing method
+            $x->Security( [@$ns_wsse, @$ns_wsu], {'soap12:mustUnderstand' => 'true'},  # Populated by signing method
                 $x->Timestamp( $ns_wsu, {'wsu:Id' => $signed_parts->{Timestamp}->{id}},
                     $x->Created ( $ns_wsu, strftime "%FT%TZ", gmtime() ),
                     $x->Expires ( $ns_wsu, strftime "%FT%TZ", gmtime( time() + 300) ),
                 ),
             )
         ),
-        $x->Body($ns_soap, {'wsu:Id' => $signed_parts->{Body}->{id}},
+        $x->Body($ns_soap12, {'wsu:Id' => $signed_parts->{Body}->{id}},
             $x->RequestSecurityToken($ns_wst,
-                $x->RequestType( $ns_wst, $request_type_urn ),
-                $x->TokenType( $ns_wst, $token_type_urn ),
+                $x->RequestType( $ns_wst, $wst_validate ),
+                $x->TokenType( $ns_wst, $wss_saml2 ),
                 $x->ValidateTarget( $ns_wst, \$self->icms_token ),
                 $x->AllowCreateFLT( $ns_icms),
             ),

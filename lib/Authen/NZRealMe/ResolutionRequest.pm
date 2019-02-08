@@ -7,10 +7,12 @@ require XML::Generator;
 
 use MIME::Base64 qw(decode_base64);
 
+use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
 
-my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
-my $ns_saml     = [ 'saml'     => 'urn:oasis:names:tc:SAML:2.0:assertion'     ];
-my $ns_samlp    = [ 'samlp'    => 'urn:oasis:names:tc:SAML:2.0:protocol'      ];
+
+my $ns_soap_env = [ NS_PAIR('soap11') ];
+my $ns_saml     = [ NS_PAIR('saml') ];
+my $ns_samlp    = [ NS_PAIR('samlp') ];
 
 
 sub new {

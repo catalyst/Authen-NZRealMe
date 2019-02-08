@@ -19,25 +19,12 @@ messaging.
 use Carp          qw(croak);
 use MIME::Base64  qw(encode_base64);
 
+use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
+
 require XML::LibXML;
 require XML::LibXML::XPathContext;
 require XML::Generator;
 require Crypt::OpenSSL::X509;
-
-use constant URI => 1;
-
-my $ns_ds      = [ ds     => 'http://www.w3.org/2000/09/xmldsig#'   ];
-my $ns_exc14n  = [ exc14n => 'http://www.w3.org/2001/10/xml-exc-c14n#' ];
-my $ns_soap    = [ soap   => 'http://www.w3.org/2003/05/soap-envelope' ];
-my $ns_wsu     = [ wsu   => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd' ];
-my $ns_wsse    = [ wsse  => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' ];
-
-
-my $uri_env_sig         = 'http://www.w3.org/2000/09/xmldsig#enveloped-signature';
-my $uri_c14n            = 'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
-my $uri_ec14n           = 'http://www.w3.org/2001/10/xml-exc-c14n';
-my $uri_key_encoding    = 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary';
-my $uri_key_valuetype   = 'http://docs.oasis-open.org/wss/oasis-wss-soap-message-security-1.1#ThumbprintSHA1';
 
 use constant WITH_COMMENTS    => 1;
 use constant WITHOUT_COMMENTS => 0;
@@ -112,21 +99,23 @@ sub sign_multiple_targets {
     my $x = XML::Generator->new();
 
     # Generate the reference blocks for each target
+    my $ns_ds   = [ NS_PAIR('ds') ];
+    my $ns_wsse = [ NS_PAIR('wsse') ];
     my $signedinfo = $x->SignedInfo( $ns_ds,
-        $x->CanonicalizationMethod( $ns_ds, { Algorithm => $ns_exc14n->[URI] }),
+        $x->CanonicalizationMethod( $ns_ds, { Algorithm => URI('ec14n') }),
         $x->SignatureMethod( $ns_ds, { Algorithm => $signature_method } ),
         $self->generate_reference_blocks($doc, $target_ids),
     ).'';
 
     # Generate SignatureValue for whole SignedInfo block
-    my $canonical_signedinfo = $self->_canonicalize( $ns_exc14n->[URI], $signedinfo);
+    my $canonical_signedinfo = $self->_canonicalize( URI('ec14n'), $signedinfo);
     my $signature = $self->rsa_signature($canonical_signedinfo, '');
 
     # Generate and add key info block
     my $x509 = Crypt::OpenSSL::X509->new_from_string($self->pub_cert_text);
     my $keyinfo_block = $x->KeyInfo( $ns_ds, { Id => 'KI-'.$self->_key_fingerprint($x509).'1' },
         $x->SecurityTokenReference( $ns_wsse, { Id => 'STR-'.$self->_key_fingerprint($x509).'2' },
-            $x->KeyIdentifier( $ns_wsse, { EncodingType => $uri_key_encoding, ValueType => $uri_key_valuetype },
+            $x->KeyIdentifier( $ns_wsse, { EncodingType => URI('wss_b64'), ValueType => URI('wss_sha1') },
                 $self->_hex_to_b64($x509->fingerprint_sha1()), # RealMe uses the raw fingerprint bytes b64encoded, rather than a plain fingerprint
             ),
         ),
@@ -142,10 +131,9 @@ sub sign_multiple_targets {
     # Insert whole block as the last element in the soap:Header section
     my $sig_dom = $self->_xml_to_dom($signature_block);
     my $xc     = XML::LibXML::XPathContext->new( $doc );
-    foreach my $ns ( ($ns_soap, $ns_wsse) ) {
-        $xc->registerNs( @$ns );
-    }
-    my ( $security_node ) = $xc->findnodes("/soap:Envelope/soap:Header/wsse:Security");
+    $xc->registerNs( NS_PAIR('soap12') );
+    $xc->registerNs( NS_PAIR('wsse') );
+    my ( $security_node ) = $xc->findnodes("/soap12:Envelope/soap12:Header/wsse:Security");
     $security_node->appendChild($sig_dom);
     return $doc->toString(0);
 }
@@ -198,10 +186,12 @@ sub _generate_reference_block {
     my $prefix_hash = {};
     $prefix_hash = { PrefixList => join( ' ', @$inclusive_namespaces) } if ($inclusive_namespaces);
 
+    my $ns_ds    = [ NS_PAIR('ds') ];
+    my $ns_ec14n = [ NS_PAIR('ec14n') ];
     my $block = $x->Reference( $ns_ds, { URI => "#$target_id" },
         $x->Transforms( $ns_ds,
-            $x->Transform( $ns_ds, { Algorithm => $uri_ec14n.'#' },
-                $x->InclusiveNamespaces( $ns_exc14n, $prefix_hash ),
+            $x->Transform( $ns_ds, { Algorithm => URI('ec14n') },
+                $x->InclusiveNamespaces( $ns_ec14n, $prefix_hash ),
             ),
         ),
         $x->DigestMethod( $ns_ds, { Algorithm => $digest_method } ),
@@ -214,9 +204,7 @@ sub _generate_ec14n_xml {
     my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
     my $id_attr  = $self->id_attr;
     my $xc     = XML::LibXML::XPathContext->new( $doc );
-    foreach my $ns ( $ns_wsu ) { #($ns_soap, $ns_wsse, $ns_wsu) ) {
-        $xc->registerNs( @$ns );
-    }
+    $xc->registerNs( NS_PAIR('wsu') );
     my($target)  = eval {
         $xc->findnodes("//*[\@${id_attr}='${target_id}']")
     } or croak "Can't find element with ${id_attr}='${target_id}'\n$@";
@@ -239,6 +227,7 @@ sub default_target_id {
 sub _canonicalize {
     my($self, $c14n_method_uri, $xml, $inclusive_namespaces) = @_;
 
+    my $uri_ec14n = URI('ec14n') =~ s/#$//r;
     my($base_uri, $hash_frag) =
         $c14n_method_uri =~ m{\A(http:[^#]+)(?:#(.*))\z}
             or die "Can't parse CanonicalizationMethod: $c14n_method_uri";
@@ -246,7 +235,7 @@ sub _canonicalize {
     if($hash_frag && $hash_frag eq 'WithComments') {
         $comments = WITH_COMMENTS;
     }
-    if($base_uri eq $uri_c14n) {
+    if($base_uri eq URI('c14n')) {
         return $self->_c14n_xml($xml, $comments);
     }
     elsif($base_uri eq $uri_ec14n) {
@@ -291,6 +280,7 @@ sub _xml_to_dom {
 sub _make_signed_info {
     my($self, $frag, $id) = @_;
 
+    my($ds_pref, $ds_uri) = NS_PAIR('ds');
     my $c14n_frag  = $self->_ec14n_xml($frag);
     my $digest     = $self->xml_digest($c14n_frag);
     my $sig_info   = $self->_signed_info_xml($id, $digest);
@@ -302,44 +292,50 @@ sub _make_signed_info {
 sub _make_signature_xml {
     my($self, $sig_info, $sig_value, %options) = @_;
 
+    my($ds_pref, $ds_uri) = NS_PAIR('ds');
+
     my $x509_certificate = '';
     if ($options{include_x509} && ($self->{pub_cert_file} || $self->{pub_cert_text})) {
         my $pub_cert_text = $self->pub_cert_text or die "No Public Key certificate defined";
         $pub_cert_text =~ s/^-----.*\n//mg;
 
-        $x509_certificate = qq{<dsig:KeyInfo>
-<dsig:X509Data>
-<dsig:X509Certificate>
-${pub_cert_text}</dsig:X509Certificate>
-</dsig:X509Data>
-</dsig:KeyInfo>
+        $x509_certificate = qq{<$ds_pref:KeyInfo>
+<$ds_pref:X509Data>
+<$ds_pref:X509Certificate>
+${pub_cert_text}</$ds_pref:X509Certificate>
+</$ds_pref:X509Data>
+</$ds_pref:KeyInfo>
 };
     }
 
-    return qq{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-        ${sig_info}
-    <dsig:SignatureValue>${sig_value}</dsig:SignatureValue>
-${x509_certificate}</dsig:Signature>};
+    return qq{<$ds_pref:Signature xmlns:$ds_pref="$ds_uri">
+${sig_info}
+  <$ds_pref:SignatureValue>
+${sig_value}</$ds_pref:SignatureValue>
+</$ds_pref:Signature>};
 }
 
 sub _signed_info_xml {
     my($self, $frag_id, $frag_digest) = @_;
 
-    my $signaturemethod = $self->SignatureMethod();
-    my $digestmethod    = $self->DigestMethod();
+    my($ds_pref, $ds_uri) = NS_PAIR('ds');
+    my $ec14n_uri         = URI('ec14n');
+    my $env_sig_uri       = URI('env_sig');
+    my $signaturemethod   = $self->SignatureMethod();
+    my $digestmethod      = $self->DigestMethod();
 
-    return qq{<dsig:SignedInfo xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
-            <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
-            <dsig:SignatureMethod Algorithm="${signaturemethod}" />
-            <dsig:Reference URI="#${frag_id}">
-                <dsig:Transforms>
-                    <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
-                    <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
-                </dsig:Transforms>
-                <dsig:DigestMethod Algorithm="${digestmethod}" />
-                <dsig:DigestValue>${frag_digest}</dsig:DigestValue>
-            </dsig:Reference>
-        </dsig:SignedInfo>};
+    return qq{  <$ds_pref:SignedInfo xmlns:$ds_pref="$ds_uri">
+    <$ds_pref:CanonicalizationMethod Algorithm="$ec14n_uri" />
+    <$ds_pref:SignatureMethod Algorithm="${signaturemethod}" />
+    <$ds_pref:Reference URI="#$frag_id">
+        <$ds_pref:Transforms>
+            <$ds_pref:Transform Algorithm="$env_sig_uri" />
+            <$ds_pref:Transform Algorithm="$ec14n_uri" />
+        </$ds_pref:Transforms>
+        <$ds_pref:DigestMethod Algorithm="${digestmethod}" />
+        <$ds_pref:DigestValue>${frag_digest}</$ds_pref:DigestValue>
+    </$ds_pref:Reference>
+</$ds_pref:SignedInfo>};
 }
 
 sub verify {
@@ -351,13 +347,13 @@ sub verify {
     my $doc = $self->_xml_to_dom($xml);
     my $xc  = XML::LibXML::XPathContext->new($doc);
 
-    $xc->registerNs( @$ns_ds );
-    $xc->registerNs( @$ns_exc14n );
-    $xc->registerNs( @$ns_soap );
-    $xc->registerNs( @$ns_wsu );
+    $xc->registerNs( NS_PAIR('ds') );
+    $xc->registerNs( NS_PAIR('ec14n') );
+    $xc->registerNs( NS_PAIR('soap12') );
+    $xc->registerNs( NS_PAIR('wsu') );
 
     my @signature_blocks;
-    foreach my $sig ( $xc->findnodes(q{//ds:Signature[not(ancestor::soap:Body)]}) ) { # Exclude signatures encapsulated in the SOAP body
+    foreach my $sig ( $xc->findnodes(q{//ds:Signature[not(ancestor::soap12:Body)]}) ) { # Exclude signatures encapsulated in the SOAP body
         push @signature_blocks, $self->_parse_signature($xc, $sig, lc($inline_certificate_check));
         $sig->parentNode->removeChild($sig);
     }
@@ -420,7 +416,7 @@ sub _parse_signature {
     my $sig_val = $xc->findvalue(q{./ds:SignatureValue}, $sig)
         or die "Can't find SignatureValue in " . $sig->toString;
 
-    my $c14n_prefix_list = $xc->findvalue( q{./ds:CanonicalizationMethod/exc14n:InclusiveNamespaces/@PrefixList}, $sig_info);
+    my $c14n_prefix_list = $xc->findvalue( q{./ds:CanonicalizationMethod/ec14n:InclusiveNamespaces/@PrefixList}, $sig_info);
     my $c14n_namespaces = [split ' ', $c14n_prefix_list];
 
     my $signature_method = $xc->findvalue(q{./ds:SignatureMethod/@Algorithm}, $sig_info)
@@ -485,11 +481,13 @@ sub _parse_signature {
                 $ref
             )
         ) {
-            next if $xform eq $uri_env_sig;
-            next if $xform =~ m{\A\Q$uri_c14n\E(?:#(?:WithComments)?)?\z};
-            if ( $xform =~ m{\A\Q$uri_ec14n\E(?:#(?:WithComments)?)?\z} ) {
+            next if $xform eq URI('env_sig');
+            my $uri_c14n  = URI('c14n');
+            my $uri_ec14n = URI('ec14n');
+            next if $xform =~ m{\A\Q$uri_c14n\E(?:#WithComments)?\z};
+            if ( $xform =~ m{\A\Q$uri_ec14n\E(?:WithComments)?\z} ) {
                 my $inc_namespaces = $xc->findvalue(
-                    q{./ds:Transforms/ds:Transform/exc14n:InclusiveNamespaces/@PrefixList},
+                    q{./ds:Transforms/ds:Transform/ec14n:InclusiveNamespaces/@PrefixList},
                     $ref
                 );
                 $ref_data->{inclusive_namespaces} = [split ' ', $inc_namespaces] if $inc_namespaces;
@@ -608,7 +606,7 @@ value. The input array should resemble this example:
 
         [ {
             id          => 's23a05470f2ac691e7ebc19a90b8f04a6336dad2fe',
-            namespaces  => ['soap'],
+            namespaces  => ['soap12'],
         },  {
             id          => 's254212e7245af1ee3a909a364273b0be7726e8808',
         } ]

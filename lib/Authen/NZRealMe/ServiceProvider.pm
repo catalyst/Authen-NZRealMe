@@ -14,6 +14,8 @@ use POSIX        qw(strftime);
 use Date::Parse  qw();
 use File::Spec   qw();
 
+use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
+
 use WWW::Curl::Easy qw(
     CURLOPT_URL
     CURLOPT_POST
@@ -40,31 +42,30 @@ my $ssl_key_filename      = 'sp-ssl-key.pem';
 my $icms_wsdl_filename    = 'metadata-icms.wsdl';
 my $ca_cert_directory     = 'ca-certs';
 
-
-my $ns_md       = [ md    => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
-my $ns_ds       = [ ds    => 'http://www.w3.org/2000/09/xmldsig#'   ];
-my $ns_saml     = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
-my $ns_samlp    = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
-my $ns_soap_env = [ 'SOAP-ENV' => 'http://schemas.xmlsoap.org/soap/envelope/' ];
-my $ns_xpil     = [ xpil  => "urn:oasis:names:tc:ciq:xpil:3" ];
-my $ns_xal      = [ xal   => "urn:oasis:names:tc:ciq:xal:3"   ];
-my $ns_xnl      = [ xnl   => "urn:oasis:names:tc:ciq:xnl:3" ];
-my $ns_ct       = [ ct    => "urn:oasis:names:tc:ciq:ct:3"  ];
-my $ns_soap     = [ soap  => "http://www.w3.org/2003/05/soap-envelope" ];
-my $ns_wsse     = [ wsse  => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd" ];
-my $ns_wsu      = [ wsu   => "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd" ];
-my $ns_wst      = [ wst   => "http://docs.oasis-open.org/ws-sx/ws-trust/200512" ];
-my $ns_wsa      = [ wsa   => "http://www.w3.org/2005/08/addressing" ];
-my $ns_ec       = [ ec    => "http://www.w3.org/2001/10/xml-exc-c14n#" ];
-my $ns_icms     = [ iCMS  => "urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0" ];
-my $ns_wsdl     = [ wsdl  => 'http://schemas.xmlsoap.org/wsdl/' ];
-my $ns_soap_12  = [ soap  => 'http://schemas.xmlsoap.org/wsdl/soap12/' ];
-my $ns_wsam     = [ wsam  => 'http://www.w3.org/2007/05/addressing/metadata' ];
+my $ns_samlmd     = [ NS_PAIR('samlmd') ];
+my $ns_ds         = [ NS_PAIR('ds') ];
+my $ns_saml       = [ NS_PAIR('saml') ];
+my $ns_samlp      = [ NS_PAIR('samlp') ];
+my $ns_soap_env   = [ NS_PAIR('soap11') ];
+my $ns_xpil       = [ NS_PAIR('xpil') ];
+my $ns_xal        = [ NS_PAIR('xal') ];
+my $ns_xnl        = [ NS_PAIR('xnl') ];
+my $ns_ct         = [ NS_PAIR('ct') ];
+my $ns_soap12     = [ NS_PAIR('soap12') ];
+my $ns_wsse       = [ NS_PAIR('wsse') ];
+my $ns_wsu        = [ NS_PAIR('wsu') ];
+my $ns_wst        = [ NS_PAIR('wst') ];
+my $ns_wsa        = [ NS_PAIR('wsa') ];
+my $ns_ec14n      = [ NS_PAIR('ec14n') ];
+my $ns_icms       = [ NS_PAIR('icms') ];
+my $ns_wsdl       = [ NS_PAIR('wsdl') ];
+my $ns_wsdl_soap  = [ NS_PAIR('wsdl_soap') ];
+my $ns_wsam       = [ NS_PAIR('wsam') ];
 
 my @ivs_namespaces  = ( $ns_xpil, $ns_xnl, $ns_ct, $ns_xal );
 my @avs_namespaces  = ( $ns_xpil, $ns_xal );
-my @icms_namespaces = ( $ns_ds, $ns_saml, $ns_icms, $ns_wsse, $ns_wsu, $ns_wst, $ns_soap  );
-my @wsdl_namespaces = ( $ns_wsdl, $ns_soap_12, $ns_wsam );
+my @icms_namespaces = ( $ns_ds, $ns_saml, $ns_icms, $ns_wsse, $ns_wsu, $ns_wst, $ns_soap12  );
+my @wsdl_namespaces = ( $ns_wsdl, $ns_wsdl_soap, $ns_wsam );
 
 my %urn_nameid_format = (
     login     => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
@@ -240,19 +241,17 @@ sub _read_metadata_from_file {
     my $metadata_file = $self->_metadata_pathname;
     die "File does not exist: $metadata_file\n" unless -e $metadata_file;
 
-    my $xc = $self->_xpath_context_dom($metadata_file, $ns_md);
-
-    $xc->registerNs( @$ns_md );
+    my $xc = $self->_xpath_context_dom($metadata_file, $ns_samlmd);
 
     my %params;
     foreach (
-        [ id                     => q{/md:EntityDescriptor/@ID} ],
-        [ entity_id              => q{/md:EntityDescriptor/@entityID} ],
-        [ url_single_logout      => q{/md:EntityDescriptor/md:SPSSODescriptor/md:SingleLogoutService/@Location} ],
-        [ url_assertion_consumer => q{/md:EntityDescriptor/md:SPSSODescriptor/md:AssertionConsumerService/@Location} ],
-        [ organization_name      => q{/md:EntityDescriptor/md:Organization/md:OrganizationName} ],
-        [ organization_url       => q{/md:EntityDescriptor/md:Organization/md:OrganizationURL} ],
-        [ contact_company        => q{/md:EntityDescriptor/md:ContactPerson/md:Company} ],
+        [ id                     => q{/samlmd:EntityDescriptor/@ID} ],
+        [ entity_id              => q{/samlmd:EntityDescriptor/@entityID} ],
+        [ url_single_logout      => q{/samlmd:EntityDescriptor/samlmd:SPSSODescriptor/samlmd:SingleLogoutService/@Location} ],
+        [ url_assertion_consumer => q{/samlmd:EntityDescriptor/samlmd:SPSSODescriptor/samlmd:AssertionConsumerService/@Location} ],
+        [ organization_name      => q{/samlmd:EntityDescriptor/samlmd:Organization/samlmd:OrganizationName} ],
+        [ organization_url       => q{/samlmd:EntityDescriptor/samlmd:Organization/samlmd:OrganizationURL} ],
+        [ contact_company        => q{/samlmd:EntityDescriptor/samlmd:ContactPerson/samlmd:Company} ],
     ) {
         $params{$_->[0]} = $xc->findvalue($_->[1]);
     }
@@ -272,20 +271,12 @@ sub _read_metadata_from_file {
 sub _parse_icms_wsdl {
     my ($self) = @_;
 
-    my $icms_pathname = $self->_icms_wsdl_pathname;
-    die "No ICMS WSDL file '$icms_wsdl_filename' in config directory"
-        unless -e $icms_pathname;
-    my $description = $self->_read_file($icms_pathname);
-    my $dom = XML::LibXML->load_xml( string => $description );
-    my $xpc = XML::LibXML::XPathContext->new();
-    foreach my $ns ( @wsdl_namespaces ) {
-        $xpc->registerNs(@$ns);
-    }
+    my $xc = $self->_xpath_context_dom($self->_icms_wsdl_pathname, @wsdl_namespaces);
     my $result = {};
     foreach my $type ( 'Issue', 'Validate' ){
         $result->{$type} = {
-            url       => $dom->findvalue('./wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="'.$type.'"]/soap:address/@location'),
-            operation => $dom->findvalue('./wsdl:definitions/wsdl:portType[@name="'.$type.'"]/wsdl:operation/wsdl:input/@wsam:Action'),
+            url       => $xc->findvalue('/wsdl:definitions/wsdl:service[@name="igovtContextMappingService"]/wsdl:port[@name="'.$type.'"]/wsdl_soap:address/@location'),
+            operation => $xc->findvalue('/wsdl:definitions/wsdl:portType[@name="'.$type.'"]/wsdl:operation/wsdl:input/@wsam:Action'),
         };
     }
 
@@ -491,11 +482,11 @@ sub _resolve_flt {
     my $content = $response->content;
 
     if ( !$response->is_success ){
-        my $xc = $self->_xpath_context_dom($content, $ns_soap, $ns_icms);
+        my $xc = $self->_xpath_context_dom($content, $ns_soap12, $ns_icms);
         # Grab and output the SOAP error explanation, if present.
-        if(my($error) = $xc->findnodes('//soap:Fault')) {
-            my $code       = $xc->findvalue('./soap:Code/soap:Value',       $error) || 'Unknown';
-            my $string     = $xc->findvalue('./soap:Reason/soap:Text',      $error) || 'Unknown';
+        if(my($error) = $xc->findnodes('//soap12:Fault')) {
+            my $code       = $xc->findvalue('./soap12:Code/soap12:Value',       $error) || 'Unknown';
+            my $string     = $xc->findvalue('./soap12:Reason/soap12:Text',      $error) || 'Unknown';
             die "ICMS error:\n  Fault Code: $code\n  Fault String: $string";
         }
         die "Error resolving FLT\n  Response code:$response->code\n  Message:$response->message";
@@ -529,7 +520,7 @@ sub _extract_flt {
     if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
     }
-    return $xc->findvalue(q{/soap:Envelope/soap:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID});
+    return $xc->findvalue(q{/soap12:Envelope/soap12:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID});
 }
 
 sub _https_post {
@@ -584,7 +575,7 @@ sub _verify_assertion {
 
     # Check for SOAP error
 
-    if(my($error) = $xc->findnodes('//SOAP-ENV:Fault')) {
+    if(my($error) = $xc->findnodes('//soap11:Fault')) {
         my $code   = $xc->findvalue('./faultcode',   $error) || 'Unknown';
         my $string = $xc->findvalue('./faultstring', $error) || 'Unknown';
         die "SOAP protocol error:\n  Fault Code: $code\n  Fault String: $string\n";
@@ -983,9 +974,9 @@ sub _xc_extract {
 sub _to_xml_string {
     my $self = shift;
 
-    my $ns_md_uri = $ns_md->[1];   # Used as default namespace, so no prefix required
+    # Use a default namespace, so no prefix required on individual elements
     my $x = XML::Generator->new(':pretty',
-        namespace => [ '#default' => $ns_md_uri ],
+        #namespace => [ '#default' => URI('samlmd') ],
     );
     $self->{x} = $x;
 

@@ -9,14 +9,15 @@ require XML::LibXML::XPathContext;
 use MIME::Base64 qw(encode_base64);
 use Digest::SHA  qw(sha1_base64);
 
+use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
+
 
 my %metadata_cache;
 
 
-my $ns_md = [ md => 'urn:oasis:names:tc:SAML:2.0:metadata' ];
-my $ns_ds = [ ds => 'http://www.w3.org/2000/09/xmldsig#'   ];
+my $ns_ds         = [ NS_PAIR('ds') ];
 
-my $soap_binding = 'urn:oasis:names:tc:SAML:2.0:bindings:SOAP';
+my $soap_binding  = URI('saml_b_soap');
 
 
 sub new {
@@ -94,7 +95,7 @@ sub _read_metadata_from_file {
     my $doc    = $parser->parse_file( $metadata_file );
     my $xc     = XML::LibXML::XPathContext->new( $doc->documentElement() );
 
-    $xc->registerNs( @$ns_md );
+    $xc->registerNs( md => URI('samlmd') );
     $xc->registerNs( @$ns_ds );
 
     my %params;

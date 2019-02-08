@@ -3,11 +3,13 @@ package Authen::NZRealMe::ResolutionResponse;
 use warnings;
 use strict;
 
-my $urn_success   = 'urn:oasis:names:tc:SAML:2.0:status:Success';
-my $urn_cancel    = 'urn:oasis:names:tc:SAML:2.0:status:AuthnFailed';
-my $urn_timeout_1 = 'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:status:Timeout';
-my $urn_timeout_2 = 'urn:nzl:govt:ict:stds:authn:deployment:RealMe:SAML:2.0:status:Timeout';
-my $urn_not_reg   = 'urn:oasis:names:tc:SAML:2.0:status:UnknownPrincipal';
+use Authen::NZRealMe::CommonURIs qw(URI);
+
+
+my $urn_success = URI('saml_success');
+my $urn_cancel  = URI('saml_auth_fail');
+my $urn_timeout = URI('rm_timeout');
+my $urn_not_reg = URI('saml_unkpncpl');
 
 
 sub new {
@@ -25,8 +27,7 @@ sub status_urn        { return shift->{status_urn};               }
 sub status_message    { return shift->{status_message} || '';     }
 sub is_success        { return shift->status_urn eq $urn_success; }
 sub is_error          { return shift->status_urn ne $urn_success; }
-sub is_timeout        { return $_[0]->status_urn eq $urn_timeout_1
-                            || $_[0]->status_urn eq $urn_timeout_2; }
+sub is_timeout        { return shift->status_urn eq $urn_timeout; }
 sub is_cancel         { return shift->status_urn eq $urn_cancel;  }
 sub is_not_registered { return shift->status_urn eq $urn_not_reg; }
 sub flt               { return shift->{flt};                      }

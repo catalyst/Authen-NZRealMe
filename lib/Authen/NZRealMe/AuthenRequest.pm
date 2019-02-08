@@ -10,8 +10,10 @@ use URI::Escape                qw(uri_escape uri_unescape);
 use IO::Uncompress::RawInflate qw(rawinflate $RawInflateError);
 use IO::Compress::RawDeflate   qw(rawdeflate $RawDeflateError);
 
-my $ns_saml  = [ saml  => 'urn:oasis:names:tc:SAML:2.0:assertion' ];
-my $ns_samlp = [ samlp => 'urn:oasis:names:tc:SAML:2.0:protocol'  ];
+use Authen::NZRealMe::CommonURIs qw(NS_PAIR);
+
+my $ns_saml  = [ NS_PAIR('saml') ];
+my $ns_samlp = [ NS_PAIR('samlp') ];
 
 
 sub new {
