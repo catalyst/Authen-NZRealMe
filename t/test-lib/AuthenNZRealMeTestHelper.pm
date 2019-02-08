@@ -15,6 +15,7 @@ use Exporter qw(import);
 
 our @EXPORT = qw(
     test_conf_dir
+    test_conf_file
     test_data_file
     xml_found_node_ok
     xml_node_content_is
@@ -37,6 +38,10 @@ my $Test = Test::Builder->new();
 
 sub test_conf_dir {
     return File::Spec->catdir($FindBin::Bin, 'test-conf');
+}
+
+sub test_conf_file {
+    return File::Spec->catdir($FindBin::Bin, 'test-conf', shift);
 }
 
 sub test_data_file {

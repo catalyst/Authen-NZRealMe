@@ -127,4 +127,10 @@ sub verify_rsa_signature {
     return $rsa_cert->verify($plaintext, $bin_sig);
 }
 
+=head1 TODO
+
+Documentation for:
+
+=head2 sign_options()
+
 1;

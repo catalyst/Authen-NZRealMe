@@ -657,6 +657,20 @@ object used for verifing signatures.
 If the public key is being extracted from an X509 certificate, this method is
 used to retrieve the text which defines the certificate.
 
+=head1 TODO
+
+Documentation for:
+
+=head2 DigestMethod()
+
+=head2 SignatureMethod()
+
+=head2 generate_reference_blocks()
+
+=head2 parse_inline_pub_key_text_cert()
+
+=head2 xml_digest()
+
 =head1 SUPPORTED ALGORITHMS
 
 =head3 sha1

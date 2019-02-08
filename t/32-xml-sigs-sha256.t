@@ -9,6 +9,7 @@ use File::Spec;
 use lib File::Spec->catdir($FindBin::Bin, 'test-lib');
 
 use AuthenNZRealMeTestHelper;
+use AuthenNZRealMeSigTestHelper;
 use Authen::NZRealMe;
 use XML::LibXML;
 use Digest::SHA     qw(sha256);
@@ -38,7 +39,7 @@ is($signer->id_attr, 'ID',  'default ID attribute name');
 my $xml = '<assertion id="onetwothree"><attribute name="surname">Bloggs</attribute></assertion>';
 
 my $target_id = 'onetwothree';
-my $key_file  = File::Spec->catfile(test_conf_dir(), 'sp-sign-key.pem');
+my $key_file  = test_conf_file('sp-sign-key.pem');
 ok(-e $key_file, "test key file exists: $key_file");
 
 $signer = $sig_class->new(
@@ -137,7 +138,13 @@ is($sig_value, $sig_value_from_xml, 'base64 encoded signature');
 ##############################################################################
 # Verify a signature
 
-my $signed_xml = `$FindBin::Bin/test-data/sign $FindBin::Bin/test-conf/idp-assertion-sign-key.pem $FindBin::Bin/test-data/xml-sigs-source.xml algorithm_sha256 sign_one_ref fourfivesix`;
+my $signed_xml = AuthenNZRealMeSigTestHelper::sign(
+    key_file  => 'idp-assertion-sign-key.pem',
+    xml_file  => 'xml-sigs-source.xml',
+    sig_alg   => 'algorithm_sha256',
+    command   => 'sign_one_ref',
+    targets   => [ 'fourfivesix' ],
+);
 
 my $container_xml = <<EOF;
 <container>
@@ -147,7 +154,7 @@ my $container_xml = <<EOF;
 </container>
 EOF
 
-my $idp_cert_file = File::Spec->catfile(test_conf_dir(), 'idp-assertion-sign-crt.pem');
+my $idp_cert_file = test_conf_file('idp-assertion-sign-crt.pem');
 my $verifier = eval {
     $sig_class->new(
         pub_cert_text  => $signer->_slurp_file($idp_cert_file),

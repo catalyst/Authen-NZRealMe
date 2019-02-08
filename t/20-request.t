@@ -74,7 +74,7 @@ is($sig_alg, 'http://www.w3.org/2000/09/xmldsig#rsa-sha1',
     "signature algorithm is correct");
 like($sig, qr/^$b64chr{200,}=*$/, 'signature is base64 encoded');
 
-my $cert_path = File::Spec->catfile(test_conf_dir(), 'sp-sign-crt.pem');
+my $cert_path = test_conf_file('sp-sign-crt.pem');
 my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
     pub_cert_file => $cert_path,
 );
