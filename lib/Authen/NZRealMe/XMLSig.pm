@@ -341,8 +341,7 @@ sub _signed_info_xml {
 sub verify {
     my($self, $xml, %options) = @_;
 
-    my $inline_certificate_check = $options{inline_certificate_check} // ''
-      or die "No inline_certificate_check option set in verify()";
+    my $inline_certificate_check = $options{inline_certificate_check} // 'never';
 
     my $doc = $self->_xml_to_dom($xml);
     my $xc  = XML::LibXML::XPathContext->new($doc);
