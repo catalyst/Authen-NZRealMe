@@ -17,14 +17,35 @@ messaging.
 
 
 use Carp          qw(croak);
-use MIME::Base64  qw(encode_base64);
+use Digest::SHA   qw(sha1 sha1_base64 sha256);
+use MIME::Base64  qw(encode_base64 decode_base64);
 
 use Authen::NZRealMe::CommonURIs qw(URI NS_PAIR);
 
 require XML::LibXML;
 require XML::LibXML::XPathContext;
 require XML::Generator;
+require Crypt::OpenSSL::RSA;
 require Crypt::OpenSSL::X509;
+
+my(%transforms_by_name, %transforms_by_uri);
+__PACKAGE__->register_transform_method($_, URI($_)) foreach (qw(
+    c14n
+    c14n_wc
+    c14n11
+    c14n11_wc
+    ec14n
+    ec14n_wc
+    sha1
+    sha256
+    env_sig
+));
+
+my(%sig_alg_by_name, %sig_alg_by_uri);
+__PACKAGE__->register_signature_methods($_, URI($_)) foreach (qw(
+    rsa_sha1
+    rsa_sha256
+));
 
 use constant WITH_COMMENTS    => 1;
 use constant WITHOUT_COMMENTS => 0;
@@ -551,6 +572,258 @@ sub _slurp_file {
     return $text;
 }
 
+
+##############################################################################
+# Methods for applying transforms
+#
+# A transform method takes a parameter '$input' which must either be a DOM
+# fragment or a string.  Some of the transform methods also accept a second
+# parameter '$args' which is a hashref defining the parameters of the transform
+# in more detail.
+#
+# In the case of a DOM fragment, we also need the XPathContext object to
+# facilitate the use of namespaces in queries.  Therefore the input parameter
+# will be a reference to an array of two elements: the context object, followed
+# by the DOM fragment node:
+#
+#     [ $xc, $node ]
+#
+# String input will be a simple scalar.  The _input_as_context_dom() helper
+# method can be used to turn a string into a DOM fragment/context pair.
+#
+# The return value from the transform method will either be a DOM fragment
+# /context pair or a string - depending on the type of transform.
+#
+# The process for calling these methods is:
+#
+# 1. Use $self->_find_transform($name_or_uri) to get a $transform hashref
+#    describing the transform.
+# 2. Optionally plug some extra parameters into the $transform hashref.
+# 3. Call $self->_apply_transform($transform, $input)
+#
+
+
+sub register_transform_method {
+    my($class, $name, $uri) = @_;
+    my $transform = {
+        name    => $name,
+        uri     => $uri,
+        method  => '_apply_transform_' . $name,
+    };
+    $transforms_by_name{$name} = $transform;
+    $transforms_by_uri{$uri}   = $transform;
+}
+
+
+sub _find_transform {
+    my($self, $identifier) = @_;
+
+    my $transform = $transforms_by_name{$identifier}
+        // $transforms_by_uri{$identifier}
+           or die "Unknown transform: '$identifier'";
+    return { %$transform };
+}
+
+
+sub _apply_transform {
+    my($self, $transform, $input) = @_;
+
+    my $method = $transform->{method} or die "transform does not include method";
+    die "Unimplemented transformation method: '$method'" unless $self->can($method);
+    return $self->$method($input, $transform);
+}
+
+
+sub _xcdom_from_xml {
+    my($self, $xml) = @_;
+
+    my $parser = XML::LibXML->new();
+    my $doc    = $parser->parse_string($xml);
+    my $xc     = XML::LibXML::XPathContext->new($doc->documentElement);
+
+    $xc->registerNs( NS_PAIR('ds') );
+    $xc->registerNs( NS_PAIR('soap12') );
+
+    return $xc;
+}
+
+
+sub _input_as_context_dom {
+    my($self, $xml) = @_;
+    my $xc = $self->_xcdom_from_xml($xml);
+    return [ $xc, $xc->getContextNode ];
+}
+
+
+sub _apply_transform_env_sig {
+    my($self, $input, $args) = @_;
+
+    $input = $self->_input_as_context_dom($input) unless ref $input;
+    my($xc, $node) = @$input;
+    my $ns_uri = $xc->lookupNs('ds');
+    if(!$ns_uri or $ns_uri ne URI('ds')) {
+        die "Expected XPathContext to map ds => " . URI('ds');
+    }
+    foreach my $sig ( $xc->findnodes(q{.//ds:Signature}, $node) ) {
+        $sig->parentNode->removeChild($sig);
+    }
+    return [ $xc, $node ];
+}
+
+
+sub _apply_transform_c14n {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringC14N', WITHOUT_COMMENTS, $input, $args);
+}
+
+
+sub _apply_transform_c14n_wc {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringC14N', WITH_COMMENTS, $input, $args);
+}
+
+
+sub _apply_transform_c14n11 {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringC14N_v1_1', WITHOUT_COMMENTS, $input, $args);
+}
+
+
+sub _apply_transform_c14n11_wc {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringC14N_v1_1', WITH_COMMENTS, $input, $args);
+}
+
+
+sub _apply_transform_ec14n {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringEC14N', WITHOUT_COMMENTS, $input, $args);
+}
+
+
+sub _apply_transform_ec14n_wc {
+    my($self, $input, $args) = @_;
+    return $self->_canonicalisation_transform('toStringEC14N', WITH_COMMENTS, $input, $args);
+}
+
+
+sub _canonicalisation_transform {
+    my($self, $c14n_method, $want_comments, $input, $args) = @_;
+    $input = $self->_input_as_context_dom($input) unless ref $input;
+    my($xc, $node) = @$input;
+    my $xpath = ($args || {})->{xpath} // '';
+    return $node->$c14n_method($want_comments, $xpath, $xc);
+}
+
+
+sub _apply_transform_sha1 {
+    my($self, $input) = @_;
+    if(ref($input)) {
+        die "The SHA1 digest transform must be passed a string as input"
+    }
+    my $bin_digest = sha1($input);
+    return encode_base64($bin_digest, '');
+}
+
+
+sub _apply_transform_sha256 {
+    my($self, $input) = @_;
+    if(ref($input)) {
+        die "The SHA256 digest transform must be passed a string as input"
+    }
+    my $bin_digest = sha256($input);
+    return encode_base64($bin_digest, '');
+}
+
+
+##############################################################################
+# Methods for creating and verifying signatures using specific algorithms.
+#
+# Signatures are expected to be base64 encoded when provided as input or
+# returned as output.
+#
+
+
+sub register_signature_methods {
+    my($class, $name, $uri) = @_;
+    my $signature_algorithm = {
+        name          => $name,
+        uri           => $uri,
+        sign_method   => '_create_signature_' . $name,
+        verify_method => '_verify_signature_' . $name,
+    };
+    $sig_alg_by_name{$name} = $signature_algorithm;
+    $sig_alg_by_uri{$uri}   = $signature_algorithm;
+}
+
+
+sub _find_sig_alg {
+    my($self, $identifier) = @_;
+
+    my $sig_alg = $sig_alg_by_name{$identifier} // $sig_alg_by_uri{$identifier}
+       or die "Unknown signature algorithm: '$identifier'";
+    return $sig_alg;
+}
+
+
+sub _verify_signature {
+    my($self, $sig_alg, $plaintext, $signature) = @_;
+    my $method = $sig_alg->{verify_method}
+        or die "transform does not include method";
+    die "Unimplemented signature verification method: '$method'"
+        unless $self->can($method);
+    my $bin_sig = decode_base64($signature);
+    return $self->$method($plaintext, $bin_sig);
+}
+
+
+sub _create_signature {
+    my($self, $sig_alg, $plaintext) = @_;
+    my $method = $sig_alg->{sign_method}
+        or die "transform does not include method";
+    die "Unimplemented signature creation method: '$method'"
+        unless $self->can($method);
+    my $bin_sig = $self->$method($plaintext);
+    return encode_base64($bin_sig);
+}
+
+
+sub _verify_signature_rsa_sha1 {
+    my($self, $plaintext, $bin_sig) = @_;
+    my $rsa_pub_key = Crypt::OpenSSL::RSA->new_public_key($self->pub_key_text);
+    $rsa_pub_key->use_pkcs1_padding();
+    $rsa_pub_key->use_sha1_hash();
+    return $rsa_pub_key->verify($plaintext, $bin_sig);
+}
+
+
+sub _verify_signature_rsa_sha256 {
+    my($self, $plaintext, $bin_sig) = @_;
+    my $rsa_pub_key = Crypt::OpenSSL::RSA->new_public_key($self->pub_key_text);
+    $rsa_pub_key->use_pkcs1_oaep_padding();
+    $rsa_pub_key->use_sha256_hash();
+    return $rsa_pub_key->verify($plaintext, $bin_sig);
+}
+
+
+sub _create_signature_rsa_sha1 {
+    my($self, $plaintext) = @_;
+    my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($self->key_text);
+    $rsa_key->use_pkcs1_padding();
+    $rsa_key->use_sha1_hash();
+    return $rsa_key->sign($plaintext);
+}
+
+
+sub _create_signature_rsa_sha256 {
+    my($self, $plaintext) = @_;
+    my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($self->key_text);
+    $rsa_key->use_pkcs1_oaep_padding();
+    $rsa_key->use_sha256_hash();
+    return $rsa_key->sign($plaintext);
+}
+
+
 1;
 
 =head1 SYNOPSIS
@@ -654,6 +927,18 @@ object used for verifing signatures.
 If the public key is being extracted from an X509 certificate, this method is
 used to retrieve the text which defines the certificate.
 
+=head2 register_transform_method( $name, $uri )
+
+Used internally to register methods for implementing transformation algorithms
+so that they can be looked by by URI.  May be called by a subclass to add
+support for additional algorithms.
+
+=head2 register_signature_methods( $name, $uri )
+
+Used internally to register methods for implementing creation and verification
+of signatures using specific algorithms so that they can be looked by by URI.
+May be called by a subclass to add support for additional algorithms.
+
 =head1 TODO
 
 Documentation for:
@@ -681,7 +966,7 @@ See L<Authen::NZRealMe> for documentation index.
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2010-2018 Enrolment Services, New Zealand Electoral Commission
+Copyright (c) 2010-2019 Enrolment Services, New Zealand Electoral Commission
 
 Written by Grant McLean E<lt>grant@catalyst.net.nzE<gt>
 
