@@ -405,6 +405,224 @@ ok(
     'failed to verify mismatched RSA-SHA256 hash signature'
 );
 
+
+##############################################################################
+# Parse out an 'enveloped signature' from a document
+
+ok('1', '===== Parsing of <Signature> blocks =====');
+
+$verifier = $sig_class->new(
+    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+);
+
+$xml =  q{<Container><Assertion ID="Idd02c7c2232759874e1c205587017bed"><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
+  <dsig:SignedInfo>
+    <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+    <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
+    <dsig:Reference URI="#Idd02c7c2232759874e1c205587017bed">
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+        <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
+      <dsig:DigestValue>Wgb21Ak30ZPTzFKw5uPlRzVd7zo=</dsig:DigestValue>
+    </dsig:Reference>
+  </dsig:SignedInfo>
+  <dsig:SignatureValue>
+oO8JbDW0l0b3KmqAu2LryU2gHTQTGaUrwOyURv/r5YHLa3mtqlF4Gkq3qy7kEgCb
+Pqwq1JHuvoG1XZ6j0StSkt+mK12AOubIuLXT/SKBU4X7MBv0HwfL5U1XXEMV8mG8
+t67f2kdOBJMeVIKU3Unw9fIWhKSjSeTArqNAdk1yCWS2NmpfG7Peu59mwqve7QTh
+8KaD9Ro+PYHpYnB2Ah8OPofo7ym0hK85eM753W/SlWBf4aj5yuZGUCPv3k3sXMbe
+VJfZ6GIwOJeGPRuGAZe8zDVsuXwnTeB6pW8huqGJduUP/JPi1LaUjpMRG3+R7yAh
+IkDsvPCXLAeAjQ7jeucNpg==
+</dsig:SignatureValue>
+</dsig:Signature>
+  <Identity>
+    <Name>Bob</Name><!-- no surname -->
+    <DateOfBirth>1954-03-21</DateOfBirth>
+  </Identity>
+</Assertion>
+<Unsafe>
+  <Assertion>Elvis is alive</Assertion>
+</Unsafe>
+</Container>
+};
+
+$xc = parse_xml_to_xc($xml, @ns_ds);
+my($sig) = $verifier->_find_signature_blocks($xc);
+
+is(ref($sig) => 'HASH', 'found a sig block');
+isa_ok($sig->{sig_info_node} => 'XML::LibXML::Element', '<SignedInfo> element');
+
+my $c14n = $sig->{c14n};
+is(ref($c14n)      => 'HASH', 'canonicalisation is defined');
+is($c14n->{name}   => 'ec14n', '  name');
+is($c14n->{uri}    => 'http://www.w3.org/2001/10/xml-exc-c14n#', '  uri');
+is($c14n->{method} => '_apply_transform_ec14n', '  method');
+
+my $xc_inp = [ $xc, $sig->{sig_info_node} ];
+my $sig_info_plaintext = $verifier->_apply_transform($c14n, $xc_inp);
+
+$sig_alg = $sig->{signature_algorithm};
+is(ref($sig_alg)      => 'HASH', 'signature method is defined');
+is($sig_alg->{name}   => 'rsa_sha1', '  name');
+is($sig_alg->{uri}    => 'http://www.w3.org/2000/09/xmldsig#rsa-sha1', '  uri');
+is($sig_alg->{sign_method}   => '_create_signature_rsa_sha1', '  sign_method');
+is($sig_alg->{verify_method} => '_verify_signature_rsa_sha1', '  verify_method');
+
+is($sig->{signature_value} =>
+    'oO8JbDW0l0b3KmqAu2LryU2gHTQTGaUrwOyURv/r5YHLa3mtqlF4Gkq3qy7kEgCb'
+    . 'Pqwq1JHuvoG1XZ6j0StSkt+mK12AOubIuLXT/SKBU4X7MBv0HwfL5U1XXEMV8mG8'
+    . 't67f2kdOBJMeVIKU3Unw9fIWhKSjSeTArqNAdk1yCWS2NmpfG7Peu59mwqve7QTh'
+    . '8KaD9Ro+PYHpYnB2Ah8OPofo7ym0hK85eM753W/SlWBf4aj5yuZGUCPv3k3sXMbe'
+    . 'VJfZ6GIwOJeGPRuGAZe8zDVsuXwnTeB6pW8huqGJduUP/JPi1LaUjpMRG3+R7yAh'
+    . 'IkDsvPCXLAeAjQ7jeucNpg==',
+    'signature_value'
+);
+
+my $v_method = $sig_alg->{verify_method};
+my $result = $verifier->_verify_signature(
+    $sig_alg, $sig_info_plaintext, $sig->{signature_value}
+);
+ok($result, 'signature was verified successfully');
+
+# Check the contents of the <SignedInfo> block
+my $refs = $sig->{references};
+is(ref($refs)      => 'ARRAY', 'references defined');
+is(scalar(@$refs)  => 1, '  exactly one in list');
+
+my($ref1) = @$refs;
+is(ref($ref1)      => 'HASH', 'first (and only) reference');
+is($ref1->{ref_id} => 'Idd02c7c2232759874e1c205587017bed', '  ref_id');
+
+my $trans = $ref1->{transforms};
+is(ref($trans)      => 'ARRAY', '  transforms defined');
+is(scalar(@$trans)  => 2, '    exactly two in list');
+
+my $t1 = $trans->[0];
+is($t1->{name}   => 'env_sig', '    t1 name');
+is($t1->{uri}    => 'http://www.w3.org/2000/09/xmldsig#enveloped-signature', '    t1 uri');
+is($t1->{method} => '_apply_transform_env_sig', '    t1 method');
+
+my $t2 = $trans->[1];
+is($t2->{name}   => 'ec14n', '    t2 name');
+is($t2->{uri}    => 'http://www.w3.org/2001/10/xml-exc-c14n#', '    t2 uri');
+is($t2->{method} => '_apply_transform_ec14n', '    t2 method');
+
+my $digm = $ref1->{digest_method};
+is(ref($digm)      => 'HASH', '  digest method is defined');
+is($digm->{name}   => 'sha1', '    name');
+is($digm->{uri}    => 'http://www.w3.org/2000/09/xmldsig#sha1', '    uri');
+is($digm->{method} => '_apply_transform_sha1', '    method');
+
+is($ref1->{digest_value} => 'Wgb21Ak30ZPTzFKw5uPlRzVd7zo=', '  digest_value');
+
+
+my $id_attr = $verifier->id_attr;
+is($id_attr => 'ID', 'attribute name for references');
+
+my $node_xml = $ref1->{xml_fragment};
+like($node_xml => qr{\A<Assertion\b}, '  top level tag is <Assertion>');
+like($node_xml => qr{\A<[^>]+ ID="Idd02c7c2232759874e1c205587017bed"},
+    '  ID attribute value'
+);
+like($node_xml => qr{<Identity\b}, '  included child tag <Identity>');
+like($node_xml => qr{<!-- no surname -->}, '  included comment');
+unlike($node_xml => qr{<dsig:Signature\b}, '  child tag <Signature> was excluded');
+
+# Apply first transform listed above
+my($assertion) = $xc->findnodes('/Container/Assertion');
+$input = [ $xc, $assertion ];
+$output = $verifier->_apply_transform($t1, $input);
+is(ref($output) => 'ARRAY', 'transform 1 output');
+my $x1_node = $output->[1];
+isa_ok($x1_node => 'XML::LibXML::Element', 'transformed output node');
+my $x1_xml = $x1_node->toString();
+like($x1_xml => qr{\A<Assertion\b}, '  top level tag is <Assertion>');
+like($x1_xml => qr{<Identity\b}, '  included child tag <Identity>');
+like($x1_xml => qr{<!-- no surname -->}, '  included comment');
+unlike($x1_xml => qr{<dsig:Signature\b}, '  child tag <Signature> not included');
+
+# Apply second transform listed above
+$input = $output;
+$output = $verifier->_apply_transform($t2, $input);
+is(ref($output) => '', 'transform returned a string');
+like($output => qr{\A<Assertion\b}, '  top level tag is <Assertion>');
+like($output => qr{<Identity\b}, '  included child tag <Identity>');
+unlike($output => qr{<!-- no surname -->}, '  comment omitted');
+unlike($output => qr{<dsig:Signature\b}, '  child tag <Signature> not included');
+is($output => q{<Assertion ID="Idd02c7c2232759874e1c205587017bed">
+  <Identity>
+    <Name>Bob</Name>
+    <DateOfBirth>1954-03-21</DateOfBirth>
+  </Identity>
+</Assertion>}, '  canonical form');
+
+# Apply digest method
+$input = $output;
+$output = $verifier->_apply_transform($digm, $input);
+is(ref($output) => '', 'digest transform returned a string');
+is($output => 'Wgb21Ak30ZPTzFKw5uPlRzVd7zo=', '  calculated digest');
+is($output => $ref1->{digest_value}, '  expected digest (from signature block)');
+
+
+##############################################################################
+# Use the verify method (which does all of the above) on the same XML document
+
+ok('1', '===== verify() method =====');
+
+$verifier = $sig_class->new(
+    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+);
+
+eval { $verifier->verify($xml); };
+is($@, '', 'signature verification was successful');
+
+
+##############################################################################
+# Try again but with referenced content that does not match the signature
+# i.e.: tamper with the signed content.
+
+$verifier = $sig_class->new(
+    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+);
+
+$xml =~ s{1954-03-21}{1954-03-22};
+
+eval { $verifier->verify($xml); };
+$error = $@;
+like($@, qr{Signature verification failed.}, 'signature verification failed');
+like($@, qr{Digest.*differs.*from.*reference}, 'due to digest mismatch');
+
+
+##############################################################################
+# Try again but alter the expected digest to match the altered content
+# i.e.: tamper with the contents of the signed info block too.
+
+$verifier = $sig_class->new(
+    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+);
+
+$xml =~ s{1954-03-21}{1954-03-22};
+$xml =~ s{Wgb21Ak30ZPTzFKw5uPlRzVd7zo=}{iIixkNtguqdVy8HcCFQSIbeMwMo=};
+
+eval { $verifier->verify($xml); };
+$error = $@;
+like($@, qr{Signature verification failed.}, 'signature verification failed');
+like($@, qr{signature does not match}, 'due to signature mismatch');
+
+
+##############################################################################
+# Try again but with a document that is not signed.
+
+$verifier = $sig_class->new(
+    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+);
+
+eval { $verifier->verify('<Doc>Content Here</Doc>'); };
+like($@, qr{XML document contains no signatures}, 'no signature to verify');
+
+
 done_testing();
 exit;
 

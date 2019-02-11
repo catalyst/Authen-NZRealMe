@@ -359,48 +359,56 @@ sub _signed_info_xml {
 </$ds_pref:SignedInfo>};
 }
 
+
 sub verify {
-    my($self, $xml, %options) = @_;
+    my($self, $xml) = @_;
 
-    my $inline_certificate_check = $options{inline_certificate_check} // 'never';
+    my $xc  = $self->_xcdom_from_xml($xml);
+    my @signed_fragment_paths;
 
-    my $doc = $self->_xml_to_dom($xml);
-    my $xc  = XML::LibXML::XPathContext->new($doc);
+    eval {
+        foreach my $sig_block ( $self->_find_signature_blocks($xc) ) {
 
-    $xc->registerNs( NS_PAIR('ds') );
-    $xc->registerNs( NS_PAIR('ec14n') );
-    $xc->registerNs( NS_PAIR('soap12') );
-    $xc->registerNs( NS_PAIR('wsu') );
+            # Confirm that the signature is valid for the <SignedInfo> block
+            my $input = [ $xc, $sig_block->{sig_info_node}];
+            my $sig_info_plaintext = $self->_apply_transform($sig_block->{c14n}, $input);
+            $self->_verify_signature(
+                $sig_block->{signature_algorithm},
+                $sig_info_plaintext,
+                $sig_block->{signature_value}
+            ) or die "SignedInfo block signature does not match\n";
 
-    my @signature_blocks;
-    foreach my $sig ( $xc->findnodes(q{//ds:Signature[not(ancestor::soap12:Body)]}) ) { # Exclude signatures encapsulated in the SOAP body
-        push @signature_blocks, $self->_parse_signature($xc, $sig, lc($inline_certificate_check));
-        $sig->parentNode->removeChild($sig);
-    }
-    croak "XML document contains no signatures" unless @signature_blocks;
+            # Confirm the digest value for each reference
+            my $references = $sig_block->{references};
+            die "Signature block contains no references\n" unless @$references;
+            foreach my $ref ( @$references ) {
+                my $fragment = $ref->{xml_fragment};
+                my $transforms = $ref->{transforms};
+                foreach my $transform ( @$transforms ) {
+                    $fragment = $self->_apply_transform($transform, $fragment);
+                }
+                my $digest = $self->_apply_transform($ref->{digest_method}, $fragment);
+                if($digest ne $ref->{digest_value}) {
+                    die "Digest of signed element '$ref->{ref_id}' "
+                      . "differs from that given in reference block\n"
+                      . "Expected:   '$ref->{digest_value}'\n"
+                      . "Calculated: '$digest'\n ";
+                }
 
-    my $id_attr  = $self->id_attr;
-
-    foreach my $block ( @signature_blocks ) {
-        foreach my $reference ( @$block ) {
-            my($frag)  = $xc->findnodes("//*[\@${id_attr}='$reference->{ref_id}']")
-                or croak "Can't find element with ${id_attr}='$reference->{ref_id}'";
-
-            my $c14n_frag = $self->_ec14n_xml( $frag, WITHOUT_COMMENTS, $reference->{inclusive_namespaces} );
-
-            my $digest = $reference->{digest_algorithm}->xml_digest($c14n_frag);
-
-            if($digest ne $reference->{digest}) {
-                die "Digest of signed element '$reference->{ref_id}' "
-                    . "differs from that given in reference block\n"
-                    . "Expected:   '$reference->{digest}'\n"
-                    . "Calculated: '$digest'\n ";
+                push @signed_fragment_paths, $ref->{xml_fragment_path};
             }
         }
-    }
+        1;
+    } or do {
+        my $message = $@ =~ s/\n+\z//r;
+        croak "Signature verification failed. $message";
+    };
+
+    croak "XML document contains no signatures" unless @signed_fragment_paths;
 
     return 1;
 }
+
 
 sub parse_inline_pub_key_text_cert {
     my($self, $xc, $sig) = @_;
@@ -519,6 +527,136 @@ sub _parse_signature {
     }
 
     return $references;
+}
+
+
+sub _find_signature_blocks {
+    my($self, $xc) = @_;
+
+    my @sig_blocks;
+    foreach my $sig ( $xc->findnodes(q{//ds:Signature}) ) {
+        push @sig_blocks, $self->_parse_signature_block($xc, $sig);
+    }
+
+    return @sig_blocks;
+}
+
+
+sub _parse_signature_block {
+    my($self, $xc, $sig) = @_;
+
+    my $sig_as_text = $sig->toString;
+    my $block = {};
+
+    my($sig_info) = $xc->findnodes(q{./ds:SignedInfo}, $sig)
+        or die "Can't verify a signature without a 'SignedInfo' element";
+    $block->{sig_info_node} = $sig_info;
+
+    my($c14n_node) = $xc->findnodes(q{./ds:CanonicalizationMethod}, $sig_info)
+        or die "Can't find CanonicalizationMethod in: '$sig_as_text'";
+    my $c14n_method = $c14n_node->{Algorithm}
+        or die "CanonicalizationMethod element lacks Algorithm attribute in: '$sig_as_text'";
+    $block->{c14n} = $self->_find_transform($c14n_method);
+
+    my($sigm_node) = $xc->findnodes(q{./ds:SignatureMethod}, $sig_info)
+        or die "Can't find SignatureMethod in: '$sig_as_text'";
+    my $sig_alg = $sigm_node->{Algorithm}
+        or die "SignatureMethod element lacks Algorithm attribute in: '$sig_as_text'";
+    $block->{signature_algorithm} = $self->_find_sig_alg($sig_alg);
+
+    $block->{references} = [
+        map { $self->_parse_signature_reference($xc, $_); }
+            $xc->findnodes(q{.//ds:Reference})
+    ];
+
+    my($sig_value) = $xc->findvalue(q{./ds:SignatureValue}, $sig)
+        or die "Can't find SignatureValue in: '$sig_as_text'";
+    $sig_value =~ s/\s+//g;
+    $block->{signature_value} = $sig_value;
+
+    return $block;
+}
+
+
+sub _parse_signature_reference {
+    my($self, $xc, $ref_node) = @_;
+
+    my $ref_as_text = $ref_node->toString;
+    my $ref_data = {};
+
+    my $ref_uri = $xc->findvalue('./@URI', $ref_node)
+        or die "Reference element is missing the URI attribute";
+    $ref_uri =~ s{^#}{};
+    $ref_data->{ref_id} = $ref_uri;
+
+    my $target_node = $self->_find_element_by_uri_reference($xc, $ref_uri);
+    $ref_data->{xml_fragment} = $self->_snapshot_node($xc, $target_node);
+    $ref_data->{xml_fragment_path} = $self->_node_to_clarkian_path($target_node);
+
+    $ref_data->{transforms} = [
+        map {
+            my $trans_node = $_;
+            my $trans_as_text = $trans_node->toString;
+            my $algorithm = $trans_node->{Algorithm}
+                or die "Transform element lacks Algorithm attribute in: '$trans_as_text'";
+            $self->_find_transform($algorithm);
+        } $xc->findnodes(q{./ds:Transforms/ds:Transform}, $ref_node)
+    ];
+
+    my($digest_node) = $xc->findnodes(q{./ds:DigestMethod}, $ref_node)
+        or die "Can't find DigestMethod in: '$ref_as_text'";
+    my $digest_method = $digest_node->{Algorithm}
+        or die "DigestMethod element lacks Algorithm attribute in: '$ref_as_text'";
+    $ref_data->{digest_method} = $self->_find_transform($digest_method);
+
+    my($digest) = map { $_->to_literal } $xc->findnodes('./ds:DigestValue', $ref_node);
+    $ref_data->{digest_value} = $digest if $digest;
+
+    return $ref_data;
+}
+
+
+sub _find_element_by_uri_reference {
+    my($self, $xc, $ref_uri) = @_;
+    my $id_attr  = $self->id_attr;
+    my($target)  = $xc->findnodes("//*[\@${id_attr}='${ref_uri}']")
+        or croak "Can't find element with ${id_attr}='${ref_uri}'";
+    return $target;
+}
+
+
+sub _node_to_clarkian_path {
+    my($self, $node) = @_;
+
+    my $node_path = $node->nodePath();
+    my %frag_ns;
+    do {
+        if(my $prefix = $node->prefix) {
+            $frag_ns{$prefix} = $node->namespaceURI;
+        }
+        $node = $node->parentNode();
+    } while($node);
+    $node_path =~ s{([\w-]+):}{
+        my $prefix = $1;
+        my $uri = $frag_ns{$prefix};
+        "{$uri}";
+    }ge;
+    return $node_path;
+}
+
+
+sub _snapshot_node {
+    my($self, $xc, $node) = @_;
+
+    # Clone node by serialising to string (leaving original intact), then
+    # do envelope transform to discard <Signature> element and serialise
+    # the resulting DOM fragment back to a string.
+
+    my $tr_ec14n   = $self->_find_transform('ec14n_wc');
+    my $tr_env_sig = $self->_find_transform('env_sig');
+    my $fragment   = $self->_apply_transform($tr_ec14n, [ $xc, $node ]);
+    $fragment = $self->_apply_transform($tr_env_sig, $fragment);
+    return $self->_apply_transform($tr_ec14n, $fragment);
 }
 
 
