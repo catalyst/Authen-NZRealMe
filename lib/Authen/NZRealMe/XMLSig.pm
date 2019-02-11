@@ -67,6 +67,7 @@ sub new {
 }
 
 sub id_attr    { shift->{id_attr};    }
+sub _signed_fragment_paths { @{ shift->{signed_fragment_paths} }; }
 sub _algorithm { shift->{_algorithm}; }
 
 sub SignatureMethod { shift->_algorithm->SignatureMethod(); }
@@ -405,6 +406,7 @@ sub verify {
     };
 
     croak "XML document contains no signatures" unless @signed_fragment_paths;
+    $self->{signed_fragment_paths} = \@signed_fragment_paths;
 
     return 1;
 }
@@ -657,6 +659,52 @@ sub _snapshot_node {
     my $fragment   = $self->_apply_transform($tr_ec14n, [ $xc, $node ]);
     $fragment = $self->_apply_transform($tr_env_sig, $fragment);
     return $self->_apply_transform($tr_ec14n, $fragment);
+}
+
+
+sub find_verified_element {
+    my($self, $xc, $xpath) = @_;
+
+    my($node) = $xc->findnodes($xpath);
+    croak "No element matches: '$xpath'" unless $node;
+
+    # Check if the matching node, or one of its ancestors is in one of
+    # the signed fragments which were verified earlier.
+
+    my @vfrags = $self->_find_signed_fragment_nodes($xc);
+    my $n = $node;
+    do {
+        foreach my $v (@vfrags) {
+            return $node if $v->isEqual($n);
+        }
+        $n = $n->parentNode;
+    } while ($n);
+    croak "Element matching '$xpath' is not in a signed fragment";
+
+    return $node;
+}
+
+
+sub _find_signed_fragment_nodes {
+    my($self, $xc) = @_;
+
+    my @paths = $self->_signed_fragment_paths;
+    my %prefix;
+    my $i = 1;
+    foreach my $uri ("@paths" =~ m/{(.*?)}/g) {
+        my $prefix = $prefix{$uri} //= sprintf('_XSig-%02u', $i++);
+        s/{$uri}/$prefix:/g foreach @paths;
+    }
+    while(my($uri, $pfx) = each %prefix) {
+        $xc->registerNs($pfx => $uri);
+    }
+    my @nodes = map { $xc->findnodes($_) } @paths;
+    return @nodes;
+}
+
+
+sub ignore_bad_signatures {   # Called if skip_signature_check is enabled
+    shift->{signed_fragment_paths} = [ '/' ];
 }
 
 
@@ -1049,6 +1097,22 @@ signature verification.
 
 If the provided document does not contain any signatures, or if an invalid
 signature is found, an exception will be thrown.
+
+=head2 find_verified_element( $xc, $xpath )
+
+This method is a wrapper around the standard  L<XML::LibXML> C<findnodes()>
+method, which also confirms that the matching node is within one of the signed
+fragments which were identified by the earlier call to the C<verify()> method.
+
+The caller must provide an L<XML::LibXML::XPathContext> object with registered
+URIs for all namespace prefixes required by the supplied XPath expression.
+
+=head2 ignore_bad_signatures( )
+
+Calling this method after C<verify()> will tag the root element as a verified
+fragment.  This is used in cases where signature verification failed (perhaps
+because the other party has just replaced their signing key) but you wish to
+proceed with calling C<find_verified_element()> anyway.
 
 =head2 key_text( )
 

@@ -578,6 +578,32 @@ $verifier = $sig_class->new(
 eval { $verifier->verify($xml); };
 is($@, '', 'signature verification was successful');
 
+my @frags = $verifier->_signed_fragment_paths;
+is(scalar(@frags), 1, 'one signed fragment was found');
+is($frags[0], '/Container/Assertion', 'XPath for signed fragment');
+
+$xc = parse_xml_to_xc($xml);
+
+$node = eval {
+    $verifier->find_verified_element($xc, '/Assertion');
+};
+like($@, qr{No element matches: '/Assertion'}, 'XPath did not match');
+
+$node = eval {
+    $verifier->find_verified_element($xc, '/Container/Unsafe/Assertion');
+};
+like($@,
+    qr{Element matching '/Container/Unsafe/Assertion' is not in a signed fragment},
+    'XPath matched unsigned element'
+);
+
+$node = eval { $verifier->find_verified_element($xc, '/Container/Assertion'); };
+is($@, '', 'found a verified element');
+isa_ok($node => 'XML::LibXML::Element', 'fragment node');
+is($node->{ID} => 'Idd02c7c2232759874e1c205587017bed', 'got the assertion node');
+my $name = $xc->findvalue('./Identity/Name', $node);
+is($name => 'Bob', 'fragment includes <Name> element');
+
 
 ##############################################################################
 # Try again but with referenced content that does not match the signature
