@@ -54,52 +54,36 @@ sub new {
     my $class = shift;
 
     my $self = bless {
-        id_attr   => 'ID',
-        algorithm => 'algorithm_sha1',
+        reference_transforms    => [ 'env_sig', 'ec14n' ],
+        reference_digest_method => 'sha1',
+        c14n_method             => 'ec14n',
+        signature_algorithm     => 'rsa_sha1',
         @_
     }, $class;
-
-    my $algorithm = delete $self->{algorithm};
-    $self->{_algorithm} = Authen::NZRealMe->class_for($algorithm)->new()
-      or die "no algorithm class created";
-
     return $self;
 }
 
-sub id_attr    { shift->{id_attr};    }
-sub _signed_fragment_paths { @{ shift->{signed_fragment_paths} }; }
-sub _algorithm { shift->{_algorithm}; }
 
-sub SignatureMethod { shift->_algorithm->SignatureMethod(); }
-sub DigestMethod    { shift->_algorithm->DigestMethod(); }
+sub id_attr                 { shift->{id_attr};    }
+sub reference_transforms    { shift->{reference_transforms}; }
+sub reference_digest_method { shift->{reference_digest_method}; }
+sub c14n_method             { shift->{c14n_method}; }
+sub signature_algorithm     { shift->{signature_algorithm}; }
+sub _signed_fragment_paths  { @{ shift->{signed_fragment_paths} }; }
 
-sub rsa_signature {
-    my $self = shift;
-
-    return $self->_algorithm->rsa_signature($self->key_text, @_);
-}
-
-sub xml_digest {
-    my $self = shift;
-
-    return $self->_algorithm->xml_digest(@_);
-}
 
 sub sign {
     my($self, $xml, $target_id, %options) = @_;
 
-    my $doc      = $self->_xml_to_dom($xml);
-    $target_id   ||= $self->default_target_id($doc);
-    my $id_attr  = $self->id_attr;
-    my($target)  = $doc->findnodes("//*[\@${id_attr}='${target_id}']")
-        or croak "Can't find element with ${id_attr}='${target_id}'";
-
-    my $sig_info  = $self->_make_signed_info($target, $target_id);
-    my $sig_value = $self->rsa_signature($self->_ec14n_xml($sig_info));
-
-    my $sig_xml   = $self->_make_signature_xml($sig_info, $sig_value, %options);
+    my $refs      = $options{references} // [ { ref_id  => $target_id } ];
+    my $ns_map    = delete($options{namespaces}) // [];
+    my $xc        = $self->_xcdom_from_xml($xml, @$ns_map);
+    my $doc       = $xc->getContextNode();
+    my $sig_xml   = $self->_make_sig_xml($xc, %options, references => $refs);
     my $sig_frag  = $self->_xml_to_dom($sig_xml);
 
+    my $ref_id_0  = $refs->[0]->{ref_id};
+    my $target    = $self->_find_element_by_uri_reference($xc, $ref_id_0);
     if($target->hasChildNodes()) {
         $target->insertBefore($sig_frag, $target->firstChild);
     }
@@ -116,8 +100,6 @@ sub sign_multiple_targets {
 
     die 'Passed in ref should be an array' if (ref $target_ids ne 'ARRAY');
 
-    my $signature_method = $self->SignatureMethod();
-
     my $x = XML::Generator->new();
 
     # Generate the reference blocks for each target
@@ -125,13 +107,13 @@ sub sign_multiple_targets {
     my $ns_wsse = [ NS_PAIR('wsse') ];
     my $signedinfo = $x->SignedInfo( $ns_ds,
         $x->CanonicalizationMethod( $ns_ds, { Algorithm => URI('ec14n') }),
-        $x->SignatureMethod( $ns_ds, { Algorithm => $signature_method } ),
+        $x->SignatureMethod( $ns_ds, { Algorithm => URI('rsa_sha1') } ),
         $self->generate_reference_blocks($doc, $target_ids),
     ).'';
 
     # Generate SignatureValue for whole SignedInfo block
     my $canonical_signedinfo = $self->_canonicalize( URI('ec14n'), $signedinfo);
-    my $signature = $self->rsa_signature($canonical_signedinfo, '');
+    my $signature = $self->create_detached_signature('rsa_sha1', $canonical_signedinfo, '');
 
     # Generate and add key info block
     my $x509 = Crypt::OpenSSL::X509->new_from_string($self->pub_cert_text);
@@ -181,27 +163,24 @@ sub generate_reference_blocks {
 
     return unless @$target_ids;
 
-    # Generate the reference blocks for each target, using sha256 encryption
-    my $algorithm_sha256 = Authen::NZRealMe->class_for('algorithm_sha256')->new();
-
     my @signedinfo;
     foreach my $target ( @$target_ids ) {
-        push @signedinfo, $self->_generate_reference_block($doc, $target, $algorithm_sha256);
+        push @signedinfo, $self->_generate_reference_block($doc, $target);
     }
 
     return join '', @signedinfo;
 }
 
 sub _generate_reference_block {
-    my ($self, $doc, $target, $algorithm) = @_;
+    my ($self, $doc, $target) = @_;
 
     my $target_id = $target->{id};
     my $inclusive_namespaces = $target->{namespaces};
 
     my $c14n_frag = $self->_generate_ec14n_xml($doc, $target_id, $inclusive_namespaces);
 
-    my $digest        = $algorithm->xml_digest($c14n_frag);
-    my $digest_method = $algorithm->DigestMethod();
+    my $digest_method = $self->_find_transform('sha256');
+    my $digest = $self->_apply_transform($digest_method, $c14n_frag);
 
     my $x = XML::Generator->new();
 
@@ -216,7 +195,7 @@ sub _generate_reference_block {
                 $x->InclusiveNamespaces( $ns_ec14n, $prefix_hash ),
             ),
         ),
-        $x->DigestMethod( $ns_ds, { Algorithm => $digest_method } ),
+        $x->DigestMethod( $ns_ds, { Algorithm => URI('sha256') } ),
         $x->DigestValue( $ns_ds, $digest ),
     ) . "\n";
     return $block;
@@ -224,12 +203,9 @@ sub _generate_reference_block {
 
 sub _generate_ec14n_xml {
     my ($self, $doc, $target_id, $inclusive_namespaces) = @_;
-    my $id_attr  = $self->id_attr;
-    my $xc     = XML::LibXML::XPathContext->new( $doc );
+    my $xc = XML::LibXML::XPathContext->new( $doc );
     $xc->registerNs( NS_PAIR('wsu') );
-    my($target)  = eval {
-        $xc->findnodes("//*[\@${id_attr}='${target_id}']")
-    } or croak "Can't find element with ${id_attr}='${target_id}'\n$@";
+    my $target = $self->_find_element_by_uri_reference($xc, $target_id);
 
     return $self->_ec14n_xml($target, WITHOUT_COMMENTS, $inclusive_namespaces);
 }
@@ -238,7 +214,7 @@ sub _generate_ec14n_xml {
 sub default_target_id {
     my($self, $doc) = @_;
 
-    my $id_attr    = $self->id_attr;
+    my $id_attr    = $self->id_attr || 'ID';
     my($target_id) = map { $_->to_literal } $doc->findnodes("//*/\@${id_attr}")
         or croak "Can't find element with '${id_attr}' attribute";
 
@@ -362,42 +338,30 @@ sub _signed_info_xml {
 
 
 sub verify {
-    my($self, $xml) = @_;
+    my $self        = shift;
+    my $xml         = shift or croak "Need XML to verify";
+    my $selector    = shift // '//ds:Signature';
+    my @namespaces  = @_;
 
-    my $xc  = $self->_xcdom_from_xml($xml);
+    # Verifying an enveloped signature performs destructive operations on the
+    # DOM, so we need a new DOM for each <Signature> block.
+
+    my $sig_count = do {
+        my $xc   = $self->_xcdom_from_xml($xml, @namespaces);
+        my @sigs = $xc->findnodes($selector);
+        scalar(@sigs);
+    };
     my @signed_fragment_paths;
 
     eval {
-        foreach my $sig_block ( $self->_find_signature_blocks($xc) ) {
-
-            # Confirm that the signature is valid for the <SignedInfo> block
-            my $input = [ $xc, $sig_block->{sig_info_node}];
-            my $sig_info_plaintext = $self->_apply_transform($sig_block->{c14n}, $input);
-            $self->_verify_signature(
-                $sig_block->{signature_algorithm},
-                $sig_info_plaintext,
-                $sig_block->{signature_value}
-            ) or die "SignedInfo block signature does not match\n";
-
-            # Confirm the digest value for each reference
-            my $references = $sig_block->{references};
-            die "Signature block contains no references\n" unless @$references;
-            foreach my $ref ( @$references ) {
-                my $fragment = $ref->{xml_fragment};
-                my $transforms = $ref->{transforms};
-                foreach my $transform ( @$transforms ) {
-                    $fragment = $self->_apply_transform($transform, $fragment);
-                }
-                my $digest = $self->_apply_transform($ref->{digest_method}, $fragment);
-                if($digest ne $ref->{digest_value}) {
-                    die "Digest of signed element '$ref->{ref_id}' "
-                      . "differs from that given in reference block\n"
-                      . "Expected:   '$ref->{digest_value}'\n"
-                      . "Calculated: '$digest'\n ";
-                }
-
-                push @signed_fragment_paths, $ref->{xml_fragment_path};
-            }
+        for(my $i = 0; $i < $sig_count; $i++) {
+            my $xc = $self->_xcdom_from_xml($xml, @namespaces);
+            my($sig_node) = ($xc->findnodes($selector))[$i];
+            die "No signature block match for selector: '$selector'"
+                unless $sig_node;
+            my $sig_block = $self->_parse_signature_block($xc, $sig_node);
+            my @frags = $self->_verify_one_signature_block($xc, $sig_block);
+            push @signed_fragment_paths, @frags;
         }
         1;
     } or do {
@@ -409,6 +373,42 @@ sub verify {
     $self->{signed_fragment_paths} = \@signed_fragment_paths;
 
     return 1;
+}
+
+
+sub _verify_one_signature_block {
+    my($self, $xc, $sig_block) = @_;
+    my(@signed_fragment_paths);
+
+    # Confirm that the signature is valid for the <SignedInfo> block
+    my $input = [ $xc, $sig_block->{sig_info_node}];
+    my $sig_info_plaintext = $self->_apply_transform($sig_block->{c14n}, $input);
+    $self->_verify_signature(
+        $sig_block->{signature_algorithm},
+        $sig_info_plaintext,
+        $sig_block->{signature_value}
+    ) or die "SignedInfo block signature does not match\n";
+
+    # Confirm the digest value for each reference
+    my $references = $sig_block->{references};
+    die "Signature block contains no references\n" unless @$references;
+    foreach my $ref ( @$references ) {
+        my $fragment = [ $xc, $ref->{xml_node} ];
+        my $transforms = $ref->{transforms};
+        foreach my $transform ( @$transforms ) {
+            $fragment = $self->_apply_transform($transform, $fragment);
+        }
+        my $digest = $self->_apply_transform($ref->{digest_method}, $fragment);
+        if($digest ne $ref->{digest_value}) {
+            die "Digest of signed element '$ref->{ref_id}' "
+              . "differs from that given in reference block\n"
+              . "Expected:   '$ref->{digest_value}'\n"
+              . "Calculated: '$digest'\n ";
+        }
+
+        push @signed_fragment_paths, $ref->{xml_fragment_path};
+    }
+    return @signed_fragment_paths;
 }
 
 
@@ -532,18 +532,6 @@ sub _parse_signature {
 }
 
 
-sub _find_signature_blocks {
-    my($self, $xc) = @_;
-
-    my @sig_blocks;
-    foreach my $sig ( $xc->findnodes(q{//ds:Signature}) ) {
-        push @sig_blocks, $self->_parse_signature_block($xc, $sig);
-    }
-
-    return @sig_blocks;
-}
-
-
 sub _parse_signature_block {
     my($self, $xc, $sig) = @_;
 
@@ -592,7 +580,7 @@ sub _parse_signature_reference {
     $ref_data->{ref_id} = $ref_uri;
 
     my $target_node = $self->_find_element_by_uri_reference($xc, $ref_uri);
-    $ref_data->{xml_fragment} = $self->_snapshot_node($xc, $target_node);
+    $ref_data->{xml_node} = $target_node;
     $ref_data->{xml_fragment_path} = $self->_node_to_clarkian_path($target_node);
 
     $ref_data->{transforms} = [
@@ -601,7 +589,11 @@ sub _parse_signature_reference {
             my $trans_as_text = $trans_node->toString;
             my $algorithm = $trans_node->{Algorithm}
                 or die "Transform element lacks Algorithm attribute in: '$trans_as_text'";
-            $self->_find_transform($algorithm);
+            my $transform = $self->_find_transform($algorithm);
+            if($xc->findnodes('./*')) {
+                $transform->{args} = $trans_node->toStringEC14N();
+            }
+            $transform;
         } $xc->findnodes(q{./ds:Transforms/ds:Transform}, $ref_node)
     ];
 
@@ -620,10 +612,26 @@ sub _parse_signature_reference {
 
 sub _find_element_by_uri_reference {
     my($self, $xc, $ref_uri) = @_;
-    my $id_attr  = $self->id_attr;
-    my($target)  = $xc->findnodes("//*[\@${id_attr}='${ref_uri}']")
-        or croak "Can't find element with ${id_attr}='${ref_uri}'";
-    return $target;
+    my @elem;
+    if(my $id_attr = $self->id_attr) {
+        @elem = $xc->findnodes("//*[\@${id_attr}='${ref_uri}']")
+            or croak "Can't find element with ${id_attr}='${ref_uri}'";
+        if(@elem != 1) {
+            croak "Reference URI \@${id_attr}='$ref_uri' is ambiguous";
+        }
+    }
+    else {
+        my @attr = $xc->findnodes("//*/\@*[.='${ref_uri}']")
+            or croak "Can't find element with ID='${ref_uri}'";
+        if(@attr > 1) {
+            @attr = grep { lc( $_->localName() ) eq 'id' } @attr;
+            if(@attr != 1) {
+                croak "Reference URI '$ref_uri' is ambiguous";
+            }
+        }
+        @elem = map { $_->ownerElement() } @attr;
+    }
+    return $elem[0];
 }
 
 
@@ -647,18 +655,108 @@ sub _node_to_clarkian_path {
 }
 
 
-sub _snapshot_node {
-    my($self, $xc, $node) = @_;
+sub _make_sig_xml {
+    my($self, $xc, %opt) = @_;
 
-    # Clone node by serialising to string (leaving original intact), then
-    # do envelope transform to discard <Signature> element and serialise
-    # the resulting DOM fragment back to a string.
+    my $sig = {};
 
-    my $tr_ec14n   = $self->_find_transform('ec14n_wc');
-    my $tr_env_sig = $self->_find_transform('env_sig');
-    my $fragment   = $self->_apply_transform($tr_ec14n, [ $xc, $node ]);
-    $fragment = $self->_apply_transform($tr_env_sig, $fragment);
-    return $self->_apply_transform($tr_ec14n, $fragment);
+    my $ref_specs = $opt{references} // [];
+    die "Can't make a signature without references" unless @$ref_specs;
+    my @references = map {
+        $self->_make_reference($xc, $_);
+    } @$ref_specs;
+    $sig->{references} = \@references;
+
+    $sig->{c14n} = $self->_find_transform(
+        $opt{c14n} // $self->c14n_method()
+    );
+
+    $sig->{signature_algorithm} = $self->_find_sig_alg(
+        $opt{signature_algorithm} // $self->signature_algorithm()
+    );
+
+    return $self->_sig_as_xml($sig);
+}
+
+
+sub _sig_as_xml {
+    my($self, $sig) = @_;
+
+    my $ns_ds   = [ dsig => URI('ds') ];
+    my $x = XML::Generator->new(':strict', pretty => 2);
+
+    my @ref_blocks = map {
+        my @transforms = map {
+            $x->Transform($ns_ds, { Algorithm => $_->{uri} })
+        } @{ $_->{transforms} };
+        $x->Reference($ns_ds, { URI => '#' . $_->{ref_id} },
+            $x->Transforms($ns_ds,
+                @transforms,
+            ),
+            $x->DigestMethod($ns_ds, { Algorithm => $_->{digest_method}->{uri} }),
+            $x->DigestValue($ns_ds, $_->{digest_value}),
+        ),
+    } @{ $sig->{references} };
+
+    my $c14n    = $sig->{c14n};
+    my $sig_alg = $sig->{signature_algorithm};
+
+    my $sig_xml = $x->Signature($ns_ds,
+        $x->SignedInfo($ns_ds,
+            $x->CanonicalizationMethod($ns_ds, { Algorithm => $c14n->{uri} }),
+            $x->SignatureMethod($ns_ds, { Algorithm => $sig_alg->{uri} }),
+            @ref_blocks,
+        ),
+        $x->SignatureValue($ns_ds,
+            $x->xmlcmnt('<< Signature Value Placeholder >>'),
+        ),
+    ) . '';
+
+    my $xc = $self->_xcdom_from_xml($sig_xml);
+    my($fragment) = [ $xc, $xc->findnodes('/ds:Signature/ds:SignedInfo') ];
+    my $plaintext = $self->_apply_transform($sig->{c14n}, $fragment);
+    my $sig_text = $self->_create_signature(
+        $sig->{signature_algorithm},
+        $plaintext,
+    );
+
+    $sig_xml =~ s{^\s+<!-- << Signature Value Placeholder >> -->\n}{$sig_text}m;
+
+    return $sig_xml;
+}
+
+
+sub _make_reference {
+    my($self, $xc, $spec) = @_;
+
+    if((ref($spec) || '') ne 'HASH') {
+        die "references must be specified as hashrefs";
+    }
+
+    my $ref = {};
+    my $ref_uri = $ref->{ref_id} = $spec->{ref_id}
+        // die "need a 'ref_id' to create a reference";
+
+    my $target_node = $self->_find_element_by_uri_reference($xc, $ref_uri);
+    $ref->{xml_node} = $target_node;
+    my $fragment = [$xc, $target_node];
+
+    my @transforms = map {
+        $self->_find_transform($_)
+    } @{ $spec->{transforms} // $self->reference_transforms() };
+
+    $ref->{transforms} = \@transforms;
+
+    foreach my $transform ( @transforms ) {
+        $fragment = $self->_apply_transform($transform, $fragment);
+    }
+
+    my $digest_method = $ref->{digest_method} = $self->_find_transform(
+        $spec->{digest_method} // $self->reference_digest_method()
+    );
+    $ref->{digest_value} = $self->_apply_transform($digest_method, $fragment);
+
+    return $ref;
 }
 
 
@@ -705,6 +803,25 @@ sub _find_signed_fragment_nodes {
 
 sub ignore_bad_signatures {   # Called if skip_signature_check is enabled
     shift->{signed_fragment_paths} = [ '/' ];
+}
+
+
+sub create_detached_signature {
+    my($self, $plaintext, $eol) = @_;
+
+    $eol //= "\n";
+    my $algorithm = $self->_find_sig_alg($self->signature_algorithm);
+    my $b64_sig = $self->_create_signature($algorithm, $plaintext);
+    $b64_sig =~ s/\s+/$eol/g;
+    return $b64_sig;
+}
+
+
+sub verify_detached_signature {
+    my($self, $plaintext, $b64_sig) = @_;
+
+    my $algorithm = $self->_find_sig_alg($self->signature_algorithm);
+    return $self->_verify_signature($algorithm, $plaintext, $b64_sig);
 }
 
 
@@ -821,14 +938,19 @@ sub _apply_transform {
 
 
 sub _xcdom_from_xml {
-    my($self, $xml) = @_;
+    my($self, $xml, @namespaces) = @_;
 
     my $parser = XML::LibXML->new();
     my $doc    = $parser->parse_string($xml);
     my $xc     = XML::LibXML::XPathContext->new($doc->documentElement);
 
     $xc->registerNs( NS_PAIR('ds') );
-    $xc->registerNs( NS_PAIR('soap12') );
+
+    while(@namespaces) {
+        my $prefix = shift @namespaces;
+        my $uri    = shift @namespaces;
+        $xc->registerNs($prefix, $uri);
+    }
 
     return $xc;
 }
@@ -842,13 +964,16 @@ sub _input_as_context_dom {
 
 
 sub _apply_transform_env_sig {
-    my($self, $input, $args) = @_;
+    my($self, $input, $transform) = @_;
 
     $input = $self->_input_as_context_dom($input) unless ref $input;
     my($xc, $node) = @$input;
     my $ns_uri = $xc->lookupNs('ds');
-    if(!$ns_uri or $ns_uri ne URI('ds')) {
-        die "Expected XPathContext to map ds => " . URI('ds');
+    if(!$ns_uri) {
+        $xc->registerNs(ds => URI('ds'));
+    }
+    elsif($ns_uri ne URI('ds')) {
+        die "Namespace prefix 'ds' is mapped to '$ns_uri', expected '" . URI('ds') . "'";
     }
     foreach my $sig ( $xc->findnodes(q{.//ds:Signature}, $node) ) {
         $sig->parentNode->removeChild($sig);
@@ -858,47 +983,69 @@ sub _apply_transform_env_sig {
 
 
 sub _apply_transform_c14n {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringC14N', WITHOUT_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringC14N', WITHOUT_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _apply_transform_c14n_wc {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringC14N', WITH_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringC14N', WITH_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _apply_transform_c14n11 {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringC14N_v1_1', WITHOUT_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringC14N_v1_1', WITHOUT_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _apply_transform_c14n11_wc {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringC14N_v1_1', WITH_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringC14N_v1_1', WITH_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _apply_transform_ec14n {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringEC14N', WITHOUT_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringEC14N', WITHOUT_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _apply_transform_ec14n_wc {
-    my($self, $input, $args) = @_;
-    return $self->_canonicalisation_transform('toStringEC14N', WITH_COMMENTS, $input, $args);
+    my($self, $input, $transform) = @_;
+    return $self->_canonicalisation_transform(
+        'toStringEC14N', WITH_COMMENTS, $input, $transform
+    );
 }
 
 
 sub _canonicalisation_transform {
-    my($self, $c14n_method, $want_comments, $input, $args) = @_;
+    my($self, $c14n_method, $want_comments, $input, $transform) = @_;
     $input = $self->_input_as_context_dom($input) unless ref $input;
     my($xc, $node) = @$input;
-    my $xpath = ($args || {})->{xpath} // '';
-    return $node->$c14n_method($want_comments, $xpath, $xc);
+    my $xpath = undef;
+    my $prefix_list = undef;
+    if(my $args = $transform->{args}) {
+        my $argxc = $self->_xcdom_from_xml($args);
+        $argxc->registerNs( NS_PAIR('ec14n') );
+        my $prefix_list_xpath = './ec14n:InclusiveNamespaces/@PrefixList';
+        my $prefixes = $argxc->findvalue($prefix_list_xpath);
+        if($prefixes) {
+            $prefix_list = [ $prefixes =~ /(\S+)/g ];
+        }
+    }
+    return $node->$c14n_method($want_comments, $xpath, $xc, $prefix_list);
 }
 
 
@@ -1012,6 +1159,8 @@ sub _create_signature_rsa_sha256 {
 
 1;
 
+__END__
+
 =head1 SYNOPSIS
 
   my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
@@ -1024,7 +1173,7 @@ sub _create_signature_rsa_sha256 {
       pub_cert_text => $self->signing_cert_pem_data(),
   );
 
-  $verifier->verify($xml, inline_certificate_check => '...');
+  $verifier->verify($xml);
 
 =head1 METHODS
 
@@ -1044,17 +1193,55 @@ passed in using the C<pub_key_text> option or it will be extracted from the
 X509 certificate provided in the C<pub_cert_text> or the C<pub_cert_file>
 option.
 
+Other recognised options are:
+
+=over 4
+
+=item C<c14n_method>
+
+The canonicalisation method to use when creating a signature block.  Default
+is 'ec14n'.
+
+=item C<signature_algorithm>
+
+The signature algorithm to use when creating a signature block.  Default
+is 'rsa_sha1'.
+
+=item C<reference_digest_method>
+
+The digest method to use when creating a reference element in a signature
+block.  Default is 'sha1'.
+
+=item C<reference_transforms>
+
+The list of transforms to usewhen creating a reference element in a signature
+block.  Must be specified as an arrayref.  Default is [ 'env_sig', 'ec14n' ].
+
+=back
+
 =head2 id_attr( )
 
 Returns the name of the attribute used to identify the element being signed.
-Defaults to 'ID'.  Can be set by passing an C<id_attr> option to the
-constructor.
+By default the attribute name is not used at all and the element references are
+resolved using matching the URI to any attribute value.  Can be set by passing
+an C<id_attr> option to the constructor.
 
-=head2 sign( $xml, $target_id )
+=head2 sign( $xml, $target_id, options ... )
 
 Takes an XML document and an optional element ID value and returns a string of
 XML with a digital signature added.  The XML document can be provided either as
 a string or as an XML::LibXML DOM object.
+
+Named options can be provided to customise the transforms and algorithms used
+when generating the signature block.  In particular, the C<references> option
+can be used to supply a list of multiple references.  In which case, a value
+of C<undef> should be provided for the C<$target_id> parameter:
+
+  my $refs = [
+      { ref_uri => $first_uri_value },
+      { ref_uri => $second_uri_value },
+  ];
+  $signer->sign($xml, undef, references => $ref);
 
 =head2 sign_multiple_targets ( $xml, $target_ids )
 
@@ -1078,25 +1265,43 @@ the method will return a string of the document and it's included signatures.
 When signing a document, if no target ID is provided, this method is used to
 find the first element with an 'ID' attribute.
 
-=head2 rsa_signature( $plaintext, $eol )
+=head2 create_detached_signature( $plaintext, $eol )
 
-Takes a plaintext string, calculates an RSA signature using the private key
-passed to the constructor and returns a base64-encoded string. The C<$eol>
-parameter can be used to specify the line-ending character used in the base64
-encoding process (default: \n).
+Takes a plaintext string, calculates a signature using the private key (and
+optionally the signarture algorithm) passed to the constructor and returns a
+base64-encoded string. The C<$eol> parameter can be used to specify the
+line-ending character used in the base64 encoding process (default: \n).
 
-=head2 verify( $xml, inline_certificate_check => 'fallback' | 'always' | 'never' )
+=head2 verify_detached_signature( $plaintext, $base64_sig )
 
-Takes an XML string (or DOM object); searches for signature elements;
- verifies the provided signature and message digest for each; and
- returns true on success.
+Takes a plaintext string, and a base64-encoded signature.  Verifies the
+signature using the public key or certificate supplied to the constructor.
+Returns true if the signature is valid, and false otherwise.
 
-The C<inline_certificate_check> option determines whether a
-certificate in the XML and/or a stored certificate is used in the
-signature verification.
+=head2 verify( $xml, $selector_xpath, @namespaces )
 
-If the provided document does not contain any signatures, or if an invalid
-signature is found, an exception will be thrown.
+Takes an XML string (or DOM object); searches for signature elements; verifies
+the provided signature and message digest for each; and returns true on success.
+The caller would then typically use C<find_verified_element()> to ensure that
+subsequent queries target element which were covered by a verified signature.
+
+The C<$selector_xpath> can be used to identify which C<< <Signature> >> element
+should be checked.  This is particularly useful with documents containing
+multiple signatures where each was creaated using a different key (since the
+API only provides for a single cert/public key).  If not provided, a default
+selector of C<'//ds:Signature'> will be used.
+
+If provided, the value for C<$selector_xpath> may use 'ds' as a namespace
+prefix for digital signature elements.  If any other namespaces are required,
+the following arguments are assumed to be C<< prefix => uri >> pairs. For
+example this code might be used to verify signatures in the SOAP envelope while
+ignoring signatures in the payload withing the SOAP body:
+
+    my $selector = '//ds:Signature[not(ancestor::soap12:Body)]';
+    $verifier->verify($xml, $selector, NS_PAIR('soap12'));
+
+If the provided document does not contain any signatures which match the
+selector, or if an invalid signature is found, an exception will be thrown.
 
 =head2 find_verified_element( $xc, $xpath )
 

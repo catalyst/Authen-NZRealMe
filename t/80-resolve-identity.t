@@ -28,13 +28,7 @@ my $idp = $sp->idp;
 isa_ok($idp => 'MockIdP', 'test IdP');
 isa_ok($idp => 'Authen::NZRealMe::IdentityProvider', 'parent class');
 
-# Create sha1 signed identity-assertion-1.xml from unsigned file.
-#system("$FindBin::Bin/test-data/sign $FindBin::Bin/test-conf/idp-assertion-sign-key.pem $FindBin::Bin/test-data/identity-assertion-unsigned.xml algorithm_sha1 $FindBin::Bin/test-conf/idp-assertion-sign-crt.pem s232bee9e49e5da3050735c11aa1e412f5a298cd28 > $FindBin::Bin/test-data/identity-assertion-1.xml");
-
-my $artifact    = $idp->make_artifact(
-    'identity-assertion-unsigned.xml',
-    's232bee9e49e5da3050735c11aa1e412f5a298cd28',
-    'sha1');
+my $artifact    = $idp->make_artifact(1); # identity-assertion-1.xml
 my $request_id  = 'fb015601b411971db9e258f12f4b1c107';
 
 my $resp = eval {

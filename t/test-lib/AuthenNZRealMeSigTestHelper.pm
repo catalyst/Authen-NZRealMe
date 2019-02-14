@@ -59,7 +59,7 @@ sub sign {
 
 sub sign_one_ref {
     my %args = @_;
-    my $id_attr    = 'ID';
+    my $id_attr    = undef;
 
     my($target_id) = $args{targets}->[0];
     if($target_id =~ /^(\w+)=(.+)$/) {

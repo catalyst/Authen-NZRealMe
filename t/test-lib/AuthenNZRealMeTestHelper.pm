@@ -2,6 +2,7 @@ package AuthenNZRealMeTestHelper;
 
 use strict;
 use warnings;
+use autodie;
 
 use Test::Builder;
 
@@ -17,6 +18,7 @@ our @EXPORT = qw(
     test_conf_dir
     test_conf_file
     test_data_file
+    slurp_file
     xml_found_node_ok
     xml_node_content_is
 );
@@ -48,6 +50,16 @@ sub test_data_file {
     return File::Spec->catdir($FindBin::Bin, 'test-data', shift);
 }
 
+sub slurp_file {
+    my($path) = @_;
+
+    my $data = do {
+        local($/) = undef;
+        open my $fh, '<', $path;
+        <$fh>;
+    };
+    return $data;
+}
 
 sub xml_found_node_ok {
     my($xml, $xpath) = @_;

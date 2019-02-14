@@ -12,13 +12,13 @@ use Digest::SHA  qw(sha1);
 use AuthenNZRealMeTestHelper;
 
 sub make_artifact {
-    my($self, $file_name, $target_id, $algorithm) = @_;
+    my($self, $test_file_index) = @_;
 
     my $type_code   = 4;
     my $index       = 0;
     my $source_id   = sha1( $self->entity_id );
-    my $artifact = pack('n n a20 C/A* C/A* C/A*', $type_code, $index, $source_id, $file_name, $target_id, $algorithm);
-
+    my $msg_handle  = sprintf('%020u', $test_file_index);
+    my $artifact = pack('nna20a20', $type_code, $index, $source_id, $msg_handle);
     return encode_base64($artifact, '');
 }
 

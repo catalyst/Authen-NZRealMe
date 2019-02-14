@@ -28,13 +28,13 @@ my $sig_class   = $dispatcher->class_for('xml_signer');
 ok($INC{'Authen/NZRealMe/XMLSig.pm'}, "loaded Authen::NZRealMe::XMLSig module");
 
 my %init = (
-    algorithm => 'algorithm_sha256',
+    signature_algorithm     => 'rsa_sha256',
+    reference_digest_method => 'sha256',
 );
 
 my $signer = $sig_class->new(%init);
-isa_ok($signer,             'Authen::NZRealMe::XMLSig');
-isa_ok($signer->_algorithm, 'Authen::NZRealMe::XMLSig::Algorithm::sha256', 'using sha256 algorithm');
-is($signer->id_attr, 'ID',  'default ID attribute name');
+isa_ok($signer, 'Authen::NZRealMe::XMLSig');
+is($signer->signature_algorithm, 'rsa_sha256', 'using RSA-SHA256 algorithm');
 
 my $xml = '<assertion id="onetwothree"><attribute name="surname">Bloggs</attribute></assertion>';
 
@@ -44,10 +44,8 @@ ok(-e $key_file, "test key file exists: $key_file");
 
 $signer = $sig_class->new(
     %init,
-    id_attr   => 'id',
     key_file  => $key_file,
 );
-is($signer->id_attr, 'id', 'overrode ID attribute name');
 
 my $signed = eval{
     $signer->sign($xml, $target_id);
@@ -126,7 +124,7 @@ $sig_value_from_xml =~ s/\s+//g;
 
 my($sig_info) = $xc->findnodes(q{//DSIG:Signature/DSIG:SignedInfo});
 my $plaintext = $sig_info->toStringEC14N(0, '', [$dsig_ns]);
-my($key_text) = $signer->_slurp_file($key_file);
+my($key_text) = slurp_file($key_file);
 my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($key_text);
 $rsa_key->use_pkcs1_oaep_padding();
 $rsa_key->use_sha256_hash();
@@ -157,14 +155,13 @@ EOF
 my $idp_cert_file = test_conf_file('idp-assertion-sign-crt.pem');
 my $verifier = eval {
     $sig_class->new(
-        pub_cert_text  => $signer->_slurp_file($idp_cert_file),
+        pub_cert_text  => slurp_file($idp_cert_file),
     );
 };
 is("$@", '', 'created object for verifying sigs');
 
 my $result = eval {
-    $verifier->verify($container_xml,
-                      inline_certificate_check => 'never');
+    $verifier->verify($container_xml);
 };
 is("$@", '', 'verified sigs without throwing exception');
 ok($result, 'verify method returned true');
@@ -177,8 +174,7 @@ my $tampered_xml = $container_xml;
 $tampered_xml =~ s/Pinetree/Mr 'Pinetree'/;
 
 $result = eval {
-    $verifier->verify($tampered_xml,
-                      inline_certificate_check => 'never');
+    $verifier->verify($tampered_xml);
 };
 is($result, undef, 'verification of signed-but-tampered document failed');
 like(

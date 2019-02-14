@@ -15,8 +15,8 @@ use XML::LibXML;
 
 my $dispatcher    = 'Authen::NZRealMe';
 my $sig_class     = $dispatcher->class_for('xml_signer');
-my $idp_cert_file = File::Spec->catfile(test_conf_dir(), 'idp-assertion-sign-crt.pem');
-my $idp_key_file  = File::Spec->catfile(test_conf_dir(), 'idp-assertion-sign-key.pem');
+my $idp_cert_file = test_conf_file('idp-assertion-sign-crt.pem');
+my $idp_key_file  = test_conf_file('idp-assertion-sign-key.pem');
 
 my @ns_ds = (ds => 'http://www.w3.org/2000/09/xmldsig#');
 
@@ -27,7 +27,7 @@ my($verifier, $signer, $xml, $xc, $node, $input, $output, $error);
 # Transform methods
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 my($tr_by_name, $tr_by_uri, $expected, $parser, $doc, $frag);
 
@@ -350,10 +350,10 @@ is($output, 'WjnmbezTqKqqU7dyvyFO46FwLTa3KBOsklKGLYK4Ge4=',
 my $plaintext       = 'This is some plain text';
 my $mismatched_text = 'This is some different plain text';
 $signer = $sig_class->new(
-    key_text  => $sig_class->_slurp_file($idp_key_file),
+    key_text  => slurp_file($idp_key_file),
 );
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 my($sig_alg, $b64_sig);
 
@@ -412,7 +412,7 @@ ok(
 ok('1', '===== Parsing of <Signature> blocks =====');
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 
 $xml =  q{<Container><Assertion ID="Idd02c7c2232759874e1c205587017bed"><dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
@@ -449,7 +449,8 @@ IkDsvPCXLAeAjQ7jeucNpg==
 };
 
 $xc = parse_xml_to_xc($xml, @ns_ds);
-my($sig) = $verifier->_find_signature_blocks($xc);
+($node) = $xc->findnodes('//ds:Signature');
+my($sig) = $verifier->_parse_signature_block($xc, $node);
 
 is(ref($sig) => 'HASH', 'found a sig block');
 isa_ok($sig->{sig_info_node} => 'XML::LibXML::Element', '<SignedInfo> element');
@@ -519,16 +520,16 @@ is($ref1->{digest_value} => 'Wgb21Ak30ZPTzFKw5uPlRzVd7zo=', '  digest_value');
 
 
 my $id_attr = $verifier->id_attr;
-is($id_attr => 'ID', 'attribute name for references');
+is($id_attr => undef, 'no default attribute name for references');
 
-my $node_xml = $ref1->{xml_fragment};
+$node = $ref1->{xml_node};
+my $node_xml = $node->toString();
 like($node_xml => qr{\A<Assertion\b}, '  top level tag is <Assertion>');
 like($node_xml => qr{\A<[^>]+ ID="Idd02c7c2232759874e1c205587017bed"},
     '  ID attribute value'
 );
 like($node_xml => qr{<Identity\b}, '  included child tag <Identity>');
 like($node_xml => qr{<!-- no surname -->}, '  included comment');
-unlike($node_xml => qr{<dsig:Signature\b}, '  child tag <Signature> was excluded');
 
 # Apply first transform listed above
 my($assertion) = $xc->findnodes('/Container/Assertion');
@@ -572,7 +573,7 @@ is($output => $ref1->{digest_value}, '  expected digest (from signature block)')
 ok('1', '===== verify() method =====');
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 
 eval { $verifier->verify($xml); };
@@ -610,7 +611,7 @@ is($name => 'Bob', 'fragment includes <Name> element');
 # i.e.: tamper with the signed content.
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 
 $xml =~ s{1954-03-21}{1954-03-22};
@@ -626,7 +627,7 @@ like($@, qr{Digest.*differs.*from.*reference}, 'due to digest mismatch');
 # i.e.: tamper with the contents of the signed info block too.
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 
 $xml =~ s{1954-03-21}{1954-03-22};
@@ -642,11 +643,65 @@ like($@, qr{signature does not match}, 'due to signature mismatch');
 # Try again but with a document that is not signed.
 
 $verifier = $sig_class->new(
-    pub_cert_text  => $sig_class->_slurp_file($idp_cert_file),
+    pub_cert_text  => slurp_file($idp_cert_file),
 );
 
 eval { $verifier->verify('<Doc>Content Here</Doc>'); };
 like($@, qr{XML document contains no signatures}, 'no signature to verify');
+
+
+
+##############################################################################
+# Test creation of signature
+
+ok('1', '===== _make_sig_xml() method =====');
+
+$xml =  q{<Container><Assertion ID="Idd02c7c2232759874e1c205587017bed">
+  <Identity>
+    <Name>Bob</Name><!-- no surname -->
+    <DateOfBirth>1954-03-21</DateOfBirth>
+  </Identity>
+</Assertion>
+</Container>
+};
+
+$xc = parse_xml_to_xc($xml);
+
+$signer = $sig_class->new(
+    pub_cert_text => slurp_file($idp_cert_file),
+    key_file      => $idp_key_file,
+);
+
+my $sig_xml = $signer->_make_sig_xml(
+    $xc,
+    references => [
+        {
+            ref_id  => 'Idd02c7c2232759874e1c205587017bed',
+        }
+    ],
+);
+
+is($sig_xml, q{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
+  <dsig:SignedInfo>
+    <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
+    <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+    <dsig:Reference URI="#Idd02c7c2232759874e1c205587017bed">
+      <dsig:Transforms>
+        <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
+        <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
+      </dsig:Transforms>
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+      <dsig:DigestValue>Wgb21Ak30ZPTzFKw5uPlRzVd7zo=</dsig:DigestValue>
+    </dsig:Reference>
+  </dsig:SignedInfo>
+  <dsig:SignatureValue>
+oO8JbDW0l0b3KmqAu2LryU2gHTQTGaUrwOyURv/r5YHLa3mtqlF4Gkq3qy7kEgCbPqwq1JHuvoG1
+XZ6j0StSkt+mK12AOubIuLXT/SKBU4X7MBv0HwfL5U1XXEMV8mG8t67f2kdOBJMeVIKU3Unw9fIW
+hKSjSeTArqNAdk1yCWS2NmpfG7Peu59mwqve7QTh8KaD9Ro+PYHpYnB2Ah8OPofo7ym0hK85eM75
+3W/SlWBf4aj5yuZGUCPv3k3sXMbeVJfZ6GIwOJeGPRuGAZe8zDVsuXwnTeB6pW8huqGJduUP/JPi
+1LaUjpMRG3+R7yAhIkDsvPCXLAeAjQ7jeucNpg==
+  </dsig:SignatureValue>
+</dsig:Signature>}, 'generated signature block');
 
 
 done_testing();

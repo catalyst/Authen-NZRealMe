@@ -29,13 +29,13 @@ my @test_docs = (
     {
         xml_file    => '01-simple-rsa-sha1.xml',
         sign_cert   => $idp_sign_cert,
-        xpath_query => '//Assertion/AttributeStatement/Attribute[@name="firstName"]',
+        xpath_query => '//Assertion/AttributeStatement/Attribute[@Name="firstName"]',
         corrupter   => sub { s/1988-08-08/1988-08-09/; },
     },
     {
         xml_file    => '02-simple-rsa-sha256.xml',
         sign_cert   => $idp_sign_cert,
-        xpath_query => '//Assertion/AttributeStatement/Attribute[@name="firstName"]',
+        xpath_query => '//Assertion/AttributeStatement/Attribute[@Name="firstName"]',
         corrupter   => sub { s/1988-08-08/1988-08-09/; },
     },
     {
@@ -66,7 +66,10 @@ foreach my $test (@test_docs) {
     is($@, '', 'successfully verified signature');
     if($verifier->can('find_verified_element')) {
         my $xc = parse_xml_to_xc($xml, @ns_prefixes);
-        my ($node) = $verifier->find_verified_element($xc, $test->{xpath_query});
+        my($node) = eval {
+            $verifier->find_verified_element($xc, $test->{xpath_query});
+        };
+        is($@, '', 'find_verified_element() did not die');
         ok($node, 'found target element in signed section');
     }
     if($test->{corrupter}) {
@@ -86,18 +89,6 @@ sub slurp_doc {
     my($file) = @_;
 
     return slurp_file(File::Spec->catdir($doc_dir, $file));
-}
-
-
-sub slurp_file {
-    my($path) = @_;
-
-    my $data = do {
-        local($/) = undef;
-        open my $fh, '<', $path;
-        <$fh>;
-    };
-    return $data;
 }
 
 

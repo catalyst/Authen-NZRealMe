@@ -28,25 +28,22 @@ ok($INC{'Authen/NZRealMe/XMLSig.pm'}, "loaded Authen::NZRealMe::XMLSig module");
 
 my $signer = $sig_class->new();
 isa_ok($signer, 'Authen::NZRealMe::XMLSig');
-is($signer->id_attr, 'ID', 'default ID attribute name');
+is($signer->id_attr, undef, 'no default ID attribute name');
 
 my $xml = '<assertion id="onetwothree"><attribute name="surname">Bloggs</attribute></assertion>';
 
-my $target_id = 'onetwothree';
+my $target_id = 'onetwofour';
 
 my $signed = eval{
     $signer->sign($xml, $target_id);
 };
 
 is($signed, undef, 'failed to sign doc');
-like("$@", qr{Can't find element}, 'because no match for id');
+like("$@", qr{Can't find element}, 'because no match for ref URI');
 
 
-$signer = $sig_class->new(
-    id_attr => 'id'
-);
-is($signer->id_attr, 'id', 'overrode ID attribute name');
-
+$target_id = 'onetwothree';
+$signer = $sig_class->new();
 $signed = eval{
     $signer->sign($xml, $target_id);
 };
@@ -59,10 +56,8 @@ my $key_file = test_conf_file('sp-sign-key.pem');
 ok(-e $key_file, "test key file exists: $key_file");
 
 $signer = $sig_class->new(
-    id_attr   => 'id',
     key_file  => $key_file,
 );
-is($signer->id_attr, 'id', 'overrode ID attribute name');
 
 $signed = eval{
     $signer->sign($xml, $target_id);
@@ -141,7 +136,7 @@ $sig_value_from_xml =~ s/\s+//g;
 
 my($sig_info) = $xc->findnodes(q{//DSIG:Signature/DSIG:SignedInfo});
 my $plaintext = $sig_info->toStringEC14N(0, '', [$dsig_ns]);
-my($key_text) = $signer->_slurp_file($key_file);
+my($key_text) = slurp_file($key_file);
 my $rsa_key = Crypt::OpenSSL::RSA->new_private_key($key_text);
 $rsa_key->use_pkcs1_padding();
 my $bin_signature = $rsa_key->sign($plaintext);
@@ -172,42 +167,19 @@ EOF
 my $idp_cert_file = test_conf_file('idp-assertion-sign-crt.pem');
 my $verifier = eval {
     $sig_class->new(
-        pub_cert_text  => $signer->_slurp_file($idp_cert_file),
+        pub_cert_text  => slurp_file($idp_cert_file),
     );
 };
 is("$@", '', 'created object for verifying sigs');
 
 my $result = eval {
-    $verifier->verify('<document><title>Unsigned XML</title></document>',
-                      inline_certificate_check => 'fallback');
+    $verifier->verify('<document><title>Unsigned XML</title></document>');
 };
 is($result, undef, 'verification of unsigned document failed');
 like("$@", qr{document contains no signatures}, 'with appropriate message');
 
 $result = eval {
-    $verifier->verify($signed_xml,
-                      inline_certificate_check => 'yes');
-};
-is($result, undef, 'verification of signed document failed');
-like("$@", qr{Unrecognised value for inline_certificate_check}, $signed_xml .'with appropriate message');
-
-$result = eval {
-    $verifier->verify($signed_xml,
-                      inline_certificate_check => 'always');
-};
-is($result, undef, 'verification of signed document with invalid inline certificate failed');
-like("$@", qr{SignedInfo block signature}, 'with appropriate message');
-
-$result = eval {
-    $verifier->verify($signed_xml,
-                      inline_certificate_check => 'fallback');
-};
-is("$@", '', 'verified sigs without throwing exception despite invalid inline certificate');
-ok($result, 'verify method returned true');
-
-$result = eval {
-    $verifier->verify($signed_xml,
-                      inline_certificate_check => 'never');
+    $verifier->verify($signed_xml);
 };
 is("$@", '', 'verified sigs without throwing exception');
 ok($result, 'verify method returned true');
@@ -220,8 +192,7 @@ my $tampered_xml = $container_xml;
 $tampered_xml =~ s/Pinetree/Mr 'Pinetree'/;
 
 $result = eval {
-    $verifier->verify($tampered_xml,
-                      inline_certificate_check => 'never');
+    $verifier->verify($tampered_xml);
 };
 is($result, undef, 'verification of signed-but-tampered document failed');
 like(

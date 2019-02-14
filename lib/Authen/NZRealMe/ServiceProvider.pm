@@ -89,7 +89,6 @@ sub new {
     my $self = bless {
         type                     => 'login',
         skip_signature_check     => 0,
-        inline_certificate_check => 'fallback',
         @_
     }, $class;
 
@@ -134,7 +133,6 @@ sub ssl_key_pathname       { shift->{conf_dir} . '/' . $ssl_key_filename;      }
 sub ca_cert_pathname       { shift->{conf_dir} . '/' . $ca_cert_directory;     }
 
 sub skip_signature_check     { shift->{skip_signature_check};     }
-sub inline_certificate_check { shift->{inline_certificate_check}; }
 
 sub idp {
     my $self = shift;
@@ -384,9 +382,9 @@ sub sign_query_string {
 
     $qs .= '&SigAlg=http%3A%2F%2Fwww.w3.org%2F2000%2F09%2Fxmldsig%23rsa-sha1';
 
-    my $signer = $self->_signer();
+    my $signer = $self->_signer(signature_algorithm => 'rsa_sha1');
 
-    my $sig = $signer->rsa_signature( $qs, '' );
+    my $sig = $signer->create_detached_signature($qs, '');
 
     return $qs . '&Signature=' . uri_escape( $sig );
 }
@@ -513,9 +511,8 @@ sub _extract_flt {
     eval {
         my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
             pub_cert_text => $idp->login_cert_pem_data(),
-            id_attr       => 'wsu:Id',
         );
-        $verifier->verify($xml, inline_certificate_check => $self->inline_certificate_check);
+        $verifier->verify($xml);
     };
     if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
@@ -669,7 +666,7 @@ sub _verify_assertion_signature {
     return if $skip_type > 1;
 
     eval {
-        $idp->verify_signature($xml, inline_certificate_check => $self->inline_certificate_check);
+        $idp->verify_signature($xml);
     };
     return unless $@;  # Signature was good
 
@@ -1204,20 +1201,6 @@ without needing to coordinate your timing exactly with the IdP service.
 
 Setting this option to 2 will completely skip signature checks (i.e. no errors
 or warnings will be generated).
-
-=item inline_certificate_check => [ 'fallback' | 'never' | 'always' ]
-
-This option allows you to control how verification of digital
-signatures use the included X509 Certificate in the response from the
-IdP.  The default value is 'fallback' - meaning the included
-certificate will be checked but there is an error, then the stored
-certificate will be used to check.
-
-If set to 'never', only the stored certificate will be used to
-check. The included certificate is ignored completely.
-
-Setting this option to 'always' will only use the included
-certificate. No stored certificate will be used.
 
 =back
 

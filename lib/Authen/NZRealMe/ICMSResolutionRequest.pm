@@ -31,7 +31,7 @@ sub new {
 
     my $self = bless {
         icms_token   => $icms_token,
-        signer       => $sp->_signer(id_attr => 'wsu:Id'),
+        signer       => $sp->_signer(),
         method_data  => $sp->_icms_method_data( 'Validate' ),
     }, $class;
 
