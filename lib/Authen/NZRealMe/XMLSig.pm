@@ -75,13 +75,19 @@ sub _signed_fragment_paths  { @{ shift->{signed_fragment_paths} }; }
 sub sign {
     my($self, $xml, $target_id, %options) = @_;
 
+    my $return_signature_xml = delete $options{return_signature_xml};
+
     my $refs      = $options{references} // [ { ref_id  => $target_id } ];
     my $ns_map    = delete($options{namespaces}) // [];
     my $xc        = $self->_xcdom_from_xml($xml, @$ns_map);
     my $doc       = $xc->getContextNode();
     my $sig_xml   = $self->_make_sig_xml($xc, %options, references => $refs);
-    my $sig_frag  = $self->_xml_to_dom($sig_xml);
 
+    # Just return the XML of the signature block if that's what the caller wants
+    return $sig_xml if $return_signature_xml;
+
+    # Otherwise, add sig fragment to source doc as first child of first ref
+    my $sig_frag  = $self->_xml_to_dom($sig_xml);
     my $ref_id_0  = $refs->[0]->{ref_id};
     my $target    = $self->_find_element_by_uri_reference($xc, $ref_id_0);
     if($target->hasChildNodes()) {
@@ -556,7 +562,7 @@ sub _parse_signature_block {
 
     $block->{references} = [
         map { $self->_parse_signature_reference($xc, $_); }
-            $xc->findnodes(q{.//ds:Reference})
+            $xc->findnodes(q{.//ds:Reference}, $sig)
     ];
 
     my($sig_value) = $xc->findvalue(q{./ds:SignatureValue}, $sig)
@@ -663,6 +669,8 @@ sub _make_sig_xml {
     my $ref_specs = $opt{references} // [];
     die "Can't make a signature without references" unless @$ref_specs;
     my @references = map {
+        $_->{digest_method} //= $opt{reference_digest_method} if $opt{reference_digest_method};
+        $_->{transforms}    //= $opt{reference_transforms}    if $opt{reference_transforms};
         $self->_make_reference($xc, $_);
     } @$ref_specs;
     $sig->{references} = \@references;
@@ -670,6 +678,10 @@ sub _make_sig_xml {
     $sig->{c14n} = $self->_find_transform(
         $opt{c14n} // $self->c14n_method()
     );
+
+    if(my $ns_list = $opt{c14n_namespaces}) {
+        $sig->{c14n}->{namespaces} = $ns_list;
+    }
 
     $sig->{signature_algorithm} = $self->_find_sig_alg(
         $opt{signature_algorithm} // $self->signature_algorithm()
@@ -687,7 +699,7 @@ sub _sig_as_xml {
 
     my @ref_blocks = map {
         my @transforms = map {
-            $x->Transform($ns_ds, { Algorithm => $_->{uri} })
+            $self->_transform_as_xml($x, 'Transform', $ns_ds, $_);
         } @{ $_->{transforms} };
         $x->Reference($ns_ds, { URI => '#' . $_->{ref_id} },
             $x->Transforms($ns_ds,
@@ -703,26 +715,43 @@ sub _sig_as_xml {
 
     my $sig_xml = $x->Signature($ns_ds,
         $x->SignedInfo($ns_ds,
-            $x->CanonicalizationMethod($ns_ds, { Algorithm => $c14n->{uri} }),
+            $self->_transform_as_xml($x, 'CanonicalizationMethod', $ns_ds, $c14n),
             $x->SignatureMethod($ns_ds, { Algorithm => $sig_alg->{uri} }),
             @ref_blocks,
         ),
         $x->SignatureValue($ns_ds,
-            $x->xmlcmnt('<< Signature Value Placeholder >>'),
+            #$x->xmlcmnt('<< Signature Value Placeholder >>'),
         ),
     ) . '';
 
-    my $xc = $self->_xcdom_from_xml($sig_xml);
+    my $xc = $self->_xcdom_from_xml($sig_xml, @$ns_ds);
+    my $doc = $xc->getContextNode();
     my($fragment) = [ $xc, $xc->findnodes('/ds:Signature/ds:SignedInfo') ];
     my $plaintext = $self->_apply_transform($sig->{c14n}, $fragment);
-    my $sig_text = $self->_create_signature(
+    my $sig_text = "\n" . $self->_create_signature(
         $sig->{signature_algorithm},
         $plaintext,
     );
+    my($sig_node) = $xc->findnodes('//dsig:SignatureValue')
+        or die "Failed to find SignatureValue in generated signature XML";
+    $sig_node->addChild( $doc->ownerDocument->createTextNode($sig_text) );
 
-    $sig_xml =~ s{^\s+<!-- << Signature Value Placeholder >> -->\n}{$sig_text}m;
+    # Serialising, parsing and reserialising simplifies ns attr and empty tags
+    return $self->_xml_to_dom( $doc->toStringEC14N() )->toString();
+}
 
-    return $sig_xml;
+
+sub _transform_as_xml {
+    my($self, $x, $tag_name, $ns_ds, $trans) = @_;
+
+    my @content;
+    if(my $ns_list = $trans->{namespaces}) {
+        my $prefixes = join ' ', @$ns_list;
+        my $ec_ns = [ 'ec' => URI('ec14n') ];
+        push @content, $x->InclusiveNamespaces($ec_ns, { PrefixList => $prefixes });
+    }
+    my $xml = $x->$tag_name($ns_ds, { Algorithm => $trans->{uri} }, @content);
+    return $xml;
 }
 
 
@@ -744,6 +773,13 @@ sub _make_reference {
     my @transforms = map {
         $self->_find_transform($_)
     } @{ $spec->{transforms} // $self->reference_transforms() };
+
+    if(my $ns_list = $spec->{namespaces}) {
+        if($transforms[-1]->{uri} ne URI('ec14n')) {
+            $transforms[-1] = $self->_find_transform('ec14n');
+        }
+        $transforms[-1]->{namespaces} = $ns_list;
+    }
 
     $ref->{transforms} = \@transforms;
 
@@ -1036,13 +1072,17 @@ sub _canonicalisation_transform {
     my($xc, $node) = @$input;
     my $xpath = undef;
     my $prefix_list = undef;
-    if(my $args = $transform->{args}) {
+    if($transform->{namespaces}) {
+        $prefix_list = $transform->{namespaces};
+    }
+    elsif(my $args = $transform->{args}) {
         my $argxc = $self->_xcdom_from_xml($args);
         $argxc->registerNs( NS_PAIR('ec14n') );
         my $prefix_list_xpath = './ec14n:InclusiveNamespaces/@PrefixList';
         my $prefixes = $argxc->findvalue($prefix_list_xpath);
         if($prefixes) {
             $prefix_list = [ $prefixes =~ /(\S+)/g ];
+            $transform->{namespaces} = $prefix_list;
         }
     }
     return $node->$c14n_method($want_comments, $xpath, $xc, $prefix_list);

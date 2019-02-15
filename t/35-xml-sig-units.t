@@ -683,14 +683,14 @@ my $sig_xml = $signer->_make_sig_xml(
 
 is($sig_xml, q{<dsig:Signature xmlns:dsig="http://www.w3.org/2000/09/xmldsig#">
   <dsig:SignedInfo>
-    <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
-    <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" />
+    <dsig:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+    <dsig:SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>
     <dsig:Reference URI="#Idd02c7c2232759874e1c205587017bed">
       <dsig:Transforms>
-        <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
-        <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#" />
+        <dsig:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+        <dsig:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
       </dsig:Transforms>
-      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" />
+      <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>
       <dsig:DigestValue>Wgb21Ak30ZPTzFKw5uPlRzVd7zo=</dsig:DigestValue>
     </dsig:Reference>
   </dsig:SignedInfo>
@@ -700,7 +700,7 @@ XZ6j0StSkt+mK12AOubIuLXT/SKBU4X7MBv0HwfL5U1XXEMV8mG8t67f2kdOBJMeVIKU3Unw9fIW
 hKSjSeTArqNAdk1yCWS2NmpfG7Peu59mwqve7QTh8KaD9Ro+PYHpYnB2Ah8OPofo7ym0hK85eM75
 3W/SlWBf4aj5yuZGUCPv3k3sXMbeVJfZ6GIwOJeGPRuGAZe8zDVsuXwnTeB6pW8huqGJduUP/JPi
 1LaUjpMRG3+R7yAhIkDsvPCXLAeAjQ7jeucNpg==
-  </dsig:SignatureValue>
+</dsig:SignatureValue>
 </dsig:Signature>}, 'generated signature block');
 
 
