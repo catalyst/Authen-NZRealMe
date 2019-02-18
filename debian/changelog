@@ -1,3 +1,11 @@
+libauthen-nzrealme-perl (1.18-1) stable; urgency=medium
+
+  * new upstream release:
+      - uses find_verified_element() when preparing the ResolutionResponse
+      - test improvements
+
+ -- Grant McLean <grant@catalyst.net.nz>  Tue, 19 Feb 2019 12:12:51 +1300
+
 libauthen-nzrealme-perl (1.17-1) stable; urgency=medium
 
   * new upstream release:
