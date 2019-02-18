@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.17      2019-02-18 15:14:53+13:00 Pacific/Auckland
     - Add support for RSA-SHA256 signatures (both signing and verification)
       in advance of new signatures to be provided by RealMe
     - Refactor XMLSig module to be more modular and use a single implementation
