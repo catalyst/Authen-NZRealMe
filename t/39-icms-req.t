@@ -28,13 +28,13 @@ my $sp_key_file   = test_conf_file('sp-sign-key.pem');
 my $sp_cert_file  = test_conf_file('sp-sign-crt.pem');
 
 my @all_ns = (
-    [ NS_PAIR('soap12') ],
-    [ NS_PAIR('wsse') ],
-    [ NS_PAIR('wsu') ],
-    [ NS_PAIR('wst') ],
-    [ NS_PAIR('wsa') ],
-    [ NS_PAIR('icms') ],
-    [ NS_PAIR('ds') ],
+    [ soap12 => 'http://www.w3.org/2003/05/soap-envelope' ],
+    [ wsse   => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd' ],
+    [ wsu    => 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd' ],
+    [ wst    => 'http://docs.oasis-open.org/ws-sx/ws-trust/200512' ],
+    [ wsa    => 'http://www.w3.org/2005/08/addressing' ],
+    [ icms   => 'urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0' ],
+    [ ds     => 'http://www.w3.org/2000/09/xmldsig#' ],
 );
 
 

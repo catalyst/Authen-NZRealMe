@@ -285,7 +285,7 @@ Source [RM_ASSERT].
 Namespace used for common types used with elements in RealMe identity
 assertions.  Source [RM_ASSERT].
 
-=item icms => urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS
+=item icms => urn:nzl:govt:ict:stds:authn:deployment:igovt:gls:iCMS:1_0
 
 Namespace used for iCMS AllowCreateFLT elements.  Source [RM_ICMS]
 

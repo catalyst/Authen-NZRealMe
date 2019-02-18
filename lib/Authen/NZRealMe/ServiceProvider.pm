@@ -503,20 +503,19 @@ sub _resolve_flt {
 
 sub _extract_flt {
     my($self, $xml, %args) = @_;
-    my $xc = $self->_xpath_context_dom($xml, @icms_namespaces);
-    # We have a SAML assertion, make sure it's signed
+    # We have a SAML assertion in the SOAP body, make sure it's signed.
+    # The assertion comes from the login IDP so use that cert to check.
     my $idp = $self->idp;
-    # ICMS responses use wsu:Id's for their ID attribute, and are (for some
-    # bizarre reason) signed with the key the login service uses.
     eval {
         my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
             pub_cert_text => $idp->login_cert_pem_data(),
         );
-        $verifier->verify($xml);
+        $verifier->verify($xml, '//soap12:Body//ds:Signature', NS_PAIR('soap12'), NS_PAIR('ds'));
     };
     if($@) {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
     }
+    my $xc = $self->_xpath_context_dom($xml, @icms_namespaces);
     return $xc->findvalue(q{/soap12:Envelope/soap12:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID});
 }
 
