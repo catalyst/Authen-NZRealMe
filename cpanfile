@@ -1,6 +1,6 @@
-requires 'perl', '5.010';
+requires 'perl', '5.014';
 requires 'XML::Generator';
-requires 'XML::LibXML';
+requires 'XML::LibXML', '2.0108';
 requires 'URI';
 requires 'LWP';
 requires 'MIME::Base64', '3.11';
