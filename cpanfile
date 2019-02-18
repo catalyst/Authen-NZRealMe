@@ -5,7 +5,7 @@ requires 'URI';
 requires 'LWP';
 requires 'MIME::Base64', '3.11';
 requires 'WWW::Curl';
-requires 'Crypt::OpenSSL::RSA';
+requires 'Crypt::OpenSSL::RSA', '0.31';
 requires 'Crypt::OpenSSL::X509';
 requires 'Date::Parse';
 requires 'Digest::SHA';
