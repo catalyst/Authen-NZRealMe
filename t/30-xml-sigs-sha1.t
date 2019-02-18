@@ -91,10 +91,6 @@ my($sig_method) = $xc->findvalue(
 );
 is($sig_method, $uri_rsa_sha1, 'signature method from SignedInfo');
 
-my $sig_algorithm = Authen::NZRealMe->new_algorithm_from_SignatureMethod($sig_method);
-isa_ok($sig_algorithm, 'Authen::NZRealMe::XMLSig::Algorithm::sha1', 'algorithm class from SignatureMethod');
-is($sig_method, $sig_algorithm->SignatureMethod(), 'signature method matches algorithm->SignatureMethod()');
-
 my($ref_uri) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/@URI}
 );
@@ -111,10 +107,6 @@ my($digest_method) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/DSIG:DigestMethod/@Algorithm}
 );
 is($digest_method, $uri_sha1, 'digest method');
-
-my $digest_algorithm = Authen::NZRealMe->new_algorithm_from_DigestMethod($digest_method);
-isa_ok($digest_algorithm, 'Authen::NZRealMe::XMLSig::Algorithm::sha1', 'algorithm class from DigestMethod');
-is($digest_method, $digest_algorithm->DigestMethod(), 'digest method matches algorithm->DigestMethod()');
 
 my($digest_from_xml) = $xc->findvalue(
     q{//DSIG:Signature/DSIG:SignedInfo/DSIG:Reference/DSIG:DigestValue}
