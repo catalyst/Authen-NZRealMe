@@ -2,6 +2,7 @@ package Authen::NZRealMe::ResolutionResponse;
 
 use warnings;
 use strict;
+use Carp      qw(croak);
 
 use Authen::NZRealMe::CommonURIs qw(URI);
 
@@ -50,7 +51,7 @@ sub address_rural_delivery { return shift->{address_postcode};    }
 
 sub set_status_urn {
     my $self = shift;
-    $self->{status_urn} = shift or die "No value provided to set_status_urn";
+    $self->{status_urn} = shift or croak "No value provided to set_status_urn";
 }
 
 sub set_status_message {
@@ -66,13 +67,13 @@ sub set_logon_strength {
 
 sub set_flt {
     my $self = shift;
-    $self->{flt} = shift or die "No value provided to set_flt";
+    $self->{flt} = shift or croak "No value provided to set_flt";
 }
 
 sub set_date_of_birth {
     my($self, $dob) = @_;
 
-    die "Invalid Date of Birth: '$dob'" unless $dob =~ /\A\d\d\d\d-\d\d-\d\d\z/;
+    croak "Invalid Date of Birth: '$dob'" unless $dob =~ /\A\d\d\d\d-\d\d-\d\d\z/;
     $self->{date_of_birth} = $dob;
 }
 

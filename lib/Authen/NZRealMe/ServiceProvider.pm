@@ -46,7 +46,7 @@ my $ns_samlmd     = [ NS_PAIR('samlmd') ];
 my $ns_ds         = [ NS_PAIR('ds') ];
 my $ns_saml       = [ NS_PAIR('saml') ];
 my $ns_samlp      = [ NS_PAIR('samlp') ];
-my $ns_soap_env   = [ NS_PAIR('soap11') ];
+my $ns_soap11     = [ NS_PAIR('soap11') ];
 my $ns_xpil       = [ NS_PAIR('xpil') ];
 my $ns_xal        = [ NS_PAIR('xal') ];
 my $ns_xnl        = [ NS_PAIR('xnl') ];
@@ -503,11 +503,13 @@ sub _resolve_flt {
 
 sub _extract_flt {
     my($self, $xml, %args) = @_;
+
     # We have a SAML assertion in the SOAP body, make sure it's signed.
     # The assertion comes from the login IDP so use that cert to check.
     my $idp = $self->idp;
+    my $verifier;
     eval {
-        my $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
+        $verifier = Authen::NZRealMe->class_for('xml_signer')->new(
             pub_cert_text => $idp->login_cert_pem_data(),
         );
         $verifier->verify($xml, '//soap12:Body//ds:Signature', NS_PAIR('soap12'), NS_PAIR('ds'));
@@ -516,7 +518,11 @@ sub _extract_flt {
         die "Failed to verify signature on assertion from IdP:\n  $@\n$xml";
     }
     my $xc = $self->_xpath_context_dom($xml, @icms_namespaces);
-    return $xc->findvalue(q{/soap12:Envelope/soap12:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID});
+    my($flt) = $verifier->find_verified_element(
+        $xc,
+        q{/soap12:Envelope/soap12:Body/wst:RequestSecurityTokenResponse/wst:RequestedSecurityToken/saml:Assertion/saml:Subject/saml:NameID}
+    ) or die "Unable to find FLT in iCMS response: $xml\n";
+    return $flt->to_literal;
 }
 
 sub _https_post {
@@ -567,7 +573,7 @@ sub _https_post {
 sub _verify_assertion {
     my($self, $xml, %args) = @_;
 
-    my $xc = $self->_xpath_context_dom($xml, $ns_soap_env, $ns_saml, $ns_samlp);
+    my $xc = $self->_xpath_context_dom($xml, $ns_soap11, $ns_saml, $ns_samlp);
 
     # Check for SOAP error
 
@@ -584,17 +590,17 @@ sub _verify_assertion {
     return $response if $response->is_error;
 
 
-    # Look for the SAML Response Subject payload
-
-    my($subject) = $xc->findnodes(
-        '//samlp:ArtifactResponse/samlp:Response/saml:Assertion/saml:Subject'
-    ) or die "Unable to find SAML Subject element in:\n$xml\n";
-
-
-    # We have a SAML assertion, make sure it's signed
+    # Make sure the response payload is signed
 
     my $idp  = $self->idp;
-    $self->_verify_assertion_signature($idp, $xml);
+    my $verifier = $self->_verify_assertion_signature($idp, $xml);
+
+
+    # Look for the SAML Response Subject payload in a signed section
+
+    my $subj_xp =
+        '//samlp:ArtifactResponse/samlp:Response/saml:Assertion/saml:Subject';
+    my($subject) = $verifier->find_verified_element($xc, $subj_xp);
 
 
     # Confirm that subject is valid for our SP
@@ -664,18 +670,21 @@ sub _verify_assertion_signature {
     my $skip_type = $self->skip_signature_check;
     return if $skip_type > 1;
 
+    my $verifier;
     eval {
-        $idp->verify_signature($xml);
+        $verifier = $idp->verify_signature($xml);
     };
-    return unless $@;  # Signature was good
-
-    if($skip_type) {
-        warn "WARNING: Continuing after signature verification failure "
-           . "(skip_signature_check is enabled)\n$@\n";
-        return;
+    if($@) {
+        if($skip_type) {
+            warn "WARNING: Continuing after signature verification failure "
+               . "(skip_signature_check is enabled)\n$@\n";
+            $verifier->ignore_bad_signatures();
+        }
+        else {
+            die $@;   # Re-throw the exception
+        }
     }
-
-    die $@;   # Re-throw the exception
+    return $verifier;
 }
 
 
