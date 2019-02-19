@@ -667,17 +667,18 @@ sub _verify_assertion {
 sub _verify_assertion_signature {
     my($self, $idp, $xml) = @_;
 
-    my $skip_type = $self->skip_signature_check;
-    return if $skip_type > 1;
-
     my $verifier;
     eval {
         $verifier = $idp->verify_signature($xml);
     };
     if($@) {
+        my $skip_type = $self->skip_signature_check;
         if($skip_type) {
-            warn "WARNING: Continuing after signature verification failure "
-               . "(skip_signature_check is enabled)\n$@\n";
+            if($skip_type < 2) {
+                warn "WARNING: Continuing after signature verification failure "
+                   . "(skip_signature_check is enabled)\n$@\n";
+            }
+            $verifier = Authen::NZRealMe->class_for('xml_signer')->new();
             $verifier->ignore_bad_signatures();
         }
         else {
