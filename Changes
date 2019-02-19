@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+    - further improvements around the use of find_verified_element()
+    - fix handling of skip_signature_check option
 
 1.18      2019-02-19 12:22:20+13:00 Pacific/Auckland
     - use find_verified_element() when preparing the ResolutionResponse
