@@ -4,13 +4,11 @@ use warnings;
 use strict;
 use feature "switch";
 
-use Term::ReadLine  qw();
 use File::Path      qw(rmtree);
 use File::Copy      qw(copy);
 use Cwd             qw(getcwd);
 
-my $prog_name = 'nzrealme';
-my $term      = undef;
+my $term = undef;
 
 my @fields = (
 
@@ -50,7 +48,7 @@ sub build {
 
     _check_conf($opt{conf_dir});
 
-    _init_term();
+    $term = Authen::NZRealMe->class_for('term_readline')->init_readline();
     my $scope = $class->_prompt_builder_scope() || return;
 
     if($scope =~ /login/) {
@@ -58,17 +56,6 @@ sub build {
     }
     if($scope =~ /assertion/) {
         $class->_build_meta($sp_class, 'assertion', %opt);
-    }
-}
-
-
-sub _init_term {
-    $term = Term::ReadLine->new($prog_name);
-    if($term->Attribs and $term->Attribs->can('ornaments')) {
-        $term->Attribs->ornaments(0);
-    }
-    else {
-        warn "Consider installing Term::ReadLine::Gnu for better terminal handling.\n\n";
     }
 }
 

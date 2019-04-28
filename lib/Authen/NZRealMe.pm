@@ -68,6 +68,7 @@ my %class_map = (
     resolution_response     => 'Authen::NZRealMe::ResolutionResponse',
     authen_request          => 'Authen::NZRealMe::AuthenRequest',
     logon_strength          => 'Authen::NZRealMe::LogonStrength',
+    term_readline           => 'Authen::NZRealMe',
 );
 
 
@@ -221,6 +222,23 @@ sub _conf_dir {
     $cmnd =~ s/_/-/g;
     die "$cmnd command needs --conf-dir option\n";
 }
+
+
+sub init_readline {
+    require Term::ReadLine;   # Was not needed until now
+
+    my $term = Term::ReadLine->new('nzrealme');
+    if($term and $term->can('ornaments')) {
+        $term->ornaments(0);
+    }
+
+    if(not exists $INC{'Term/ReadLine/Gnu.pm'}) {
+        warn "Consider installing Term::ReadLine::Gnu for better terminal handling.\n\n";
+    }
+
+    return $term;
+}
+
 
 1;
 

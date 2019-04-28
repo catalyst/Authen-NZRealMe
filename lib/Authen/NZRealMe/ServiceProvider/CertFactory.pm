@@ -3,11 +3,7 @@ package Authen::NZRealMe::ServiceProvider::CertFactory;
 use warnings;
 use strict;
 
-use Term::ReadLine;
-
-my $prog_name = 'nzrealme';
-my $term      = undef;
-
+my $term = undef;
 
 my @fields = (
 
@@ -81,7 +77,7 @@ sub _prompt_for_parameters {
     my $class = shift;
     my $args  = shift // { };
 
-    $term = Term::ReadLine->new($prog_name);
+    $term = Authen::NZRealMe->class_for('term_readline')->init_readline();
     if($term->Attribs and $term->Attribs->can('ornaments')) {
         $term->Attribs->ornaments(0);
     }
