@@ -228,6 +228,19 @@ sub _conf_dir {
 __END__
 
 
+=head1 IMPLEMENTATION DETAILS
+
+This module does not implement 100% of the APIs exposed by the RealMe service.
+In particular, it only implements the 'Artifact' binding and not the 'POST'
+binding.  This is simply because the 'POST' binding was made available after
+this module was initially developed and the authors have not yet had a
+requirement to implement the 'POST' binding.  Patches are welcome.
+
+The module also does not currently implement the RCMS API.  Once again, this
+is because the authors have not yet needed RCMS functionality.  Patches are
+welcome for this too.
+
+
 =head1 GETTING STARTED
 
 You cannot simply drop some config files in a directory and start
@@ -235,6 +248,10 @@ authenticating users.  Your agency will need to establish a Service Provider
 role with the logon service and complete the required integration steps.  Your
 first step should be to make contact with the DIA/RealMe team and arrange a
 meeting.
+
+(Actually, it appears that you I<can> now set up a working integration with at
+least the RealMe MTS test service without having to engage formally with RealMe
+or DIA).
 
 
 =head1 CODE INTEGRATION
@@ -256,7 +273,8 @@ when the user is redirected back to your site
 =back
 
 To understand how this module must be linked into your application, it helps to
-understand the SAML protocol interaction that is followed for each user logon:
+understand the SAML protocol interaction that is followed for each user logon,
+using the 'Artifact' binding:
 
   Agency Web Site                                 RealMe login server
 
@@ -471,6 +489,11 @@ The login service IdP or Identity Provider metadata file will be provided to
 you by RealMe/DIA.  You will simply need to copy it to the config directory and
 give it the correct name.
 
+For example, rename this file from the MTS integration bundle:
+
+  MTSIdPLoginSAMLMetadata.xml => metadata-login-idp.xml
+
+
 =item C<metadata-assertion-sp.xml>
 
 This file is only required if you are using the assertion service and can be
@@ -491,6 +514,10 @@ omitted if you are only using the login service.
 The assertion service IdP or Identity Provider metadata file will be provided
 to you by RealMe/DIA.  You will simply need to copy it to the config directory
 and give it the correct name.
+
+For example, rename this file from the MTS integration bundle:
+
+  MTSIdPAssertSAMLMetadata.xml.xml => metadata-assertion-idp.xml
 
 =item C<metadata-icms.wsdl>
 
@@ -552,31 +579,22 @@ You do not need to generate certificates at all for the MTS environment -
 simply use the files provided in the MTS integration resources pack.  Copy them
 into your config directory and rename as follows:
 
-  mts_mutualssl_saml_sp.pem => sp-sign-key.pem
-  mts_mutualssl_saml_sp.cer => sp-sign-crt.pem
-  mts_saml_sp.pem           => sp-ssl-key.pem
-  mts_saml_sp.cer           => sp-ssl-crt.pem
+  mts_mutual_ssl_sp.pem => sp-sign-key.pem
+  mts_mutual_ssl_sp.cer => sp-sign-crt.pem
+  mts_saml_sp.pem       => sp-ssl-key.pem
+  mts_saml_sp.cer       => sp-ssl-crt.pem
 
-=item ITE (Staging)
+=item ITE (Staging) and PROD (Production)
 
-For the ITE environment you can generate self-signed certs.  The C<nzrealme>
-tool can prompt you interactively for the required parameters:
-
-  nzrealme --conf-dir /etc/nzrealme make-certs
-
-or you can provide them on the command-line:
-
-  nzrealme --conf-dir /etc/nzrealme make-certs --env ITE \
-    --org="Department of Innovation" --domain="innovation.govt.nz"
-
-=item PROD (Production)
-
-For the production environment you can use the C<nzrealme> tool to generate
-Certificate Signing Requests which you will then submit to a Certification
-Authority who will issue signed certificate files.  Save them in the config
-directory using the filenames listed above.
+For both the ITE and production environments you can use the C<nzrealme> tool
+to generate Certificate Signing Requests which you will then submit to a
+Certification Authority who will issue signed certificate files.  Save them in
+the config directory using the filenames listed above.
 
   nzrealme --conf-dir /etc/nzrealme make-certs --env PROD ...
+
+(Note: it used to be possible to use self-signed certificates with ITE - this
+is no longer possible).
 
 =back
 
