@@ -981,7 +981,7 @@ sub _to_xml_string {
 
     # Use a default namespace, so no prefix required on individual elements
     my $x = XML::Generator->new(':pretty',
-        #namespace => [ '#default' => URI('samlmd') ],
+        namespace => [ '#default' => URI('samlmd') ],
     );
     $self->{x} = $x;
 
