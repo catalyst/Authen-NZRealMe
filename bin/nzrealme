@@ -49,14 +49,21 @@ if($opt{help} or (@ARGV && $ARGV[0] eq 'help')) {
     pod2usage(-exitstatus => 0, -verbose => 2);
 }
 
+pod2usage(
+    -exitstatus => 1, -verbose => 0,
+    -message => "No command specified\n"
+) if not @ARGV;
+
 $ARGV[0] ||= 'version' if $opt{version};
 
 my $start_dir = getcwd();
-eval { Authen::NZRealMe->run_command(\%opt, @ARGV); };
-if($@) {
-    chdir($start_dir);
-    pod2usage(-exitstatus => 1, -verbose => 0, -message => "$@");
-}
+eval {
+    Authen::NZRealMe->run_command(\%opt, @ARGV);
+    1;
+} or do {
+    warn "$@\nUse --help for more info\n";
+    exit 1;
+};
 
 exit 0;
 
