@@ -1345,12 +1345,6 @@ Controls whether the user should be allowed to create a new account on the
 "login" service IdP.  Not used when talking to the "assertion service".
 Default: false.
 
-=item force_auth => boolean
-
-Controls whether the user will be forced to log in, rather than allowing the
-reuse of an existing logon session on the IdP.  Not useful, as the login
-service ignores this option anyway.  Default: true.
-
 =item auth_strength => string
 
 The logon strength required.  May be supplied as a URN, or as keyword ('low',

@@ -22,7 +22,6 @@ sub new {
 
     my $self = bless {
         allow_create    => 'false',
-        force_auth      => 'true',
         auth_strength   => 'low',
         @_,
     }, $class;
@@ -58,7 +57,6 @@ sub destination_url { shift->{destination_url};     }
 sub saml_request    { shift->{saml_request};        }
 sub relay_state     { shift->{relay_state};         }
 sub allow_create    { shift->_bool('allow_create'); }
-sub force_auth      { shift->_bool('force_auth');   }
 sub auth_strength   { shift->{auth_strength};       }
 sub _query_string   { shift->{query_string};        }
 sub _nameid_format  { shift->{nameid_format};       }
@@ -108,9 +106,6 @@ sub _generate_authn_request_doc {
             ID                            => $self->request_id(),
             IssueInstant                  => $self->request_time(),
             Destination                   => $self->destination_url(),
-            $self->service_type eq 'login'
-                ? (ForceAuthn             => $self->force_auth() )
-                : (),
             AssertionConsumerServiceIndex => '0',
         },
         $self->_issuer(),
@@ -254,7 +249,6 @@ method on the service provider object.
 The following named parameters are recognised:
 
   allow_create     boolean       (default: false)
-  force_auth       boolean       (default: true)
   relay_state      short string  (default: none)
   auth_strength    see below     (default: 'low')
 
@@ -293,11 +287,6 @@ If not provided, no relay state will be passed to the Identity Provider.
 
 Accessor for the C<allow_create> parameter optionally passed to the constructor.
 If not provided, this parameter will default to 'false'.
-
-=head2 force_auth
-
-Accessor for the C<force_auth> parameter optionally passed to the constructor.
-If not provided, this parameter will default to 'true'.
 
 =head2 auth_strength
 
