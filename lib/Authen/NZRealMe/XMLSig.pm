@@ -908,6 +908,12 @@ Other recognised options are:
 The canonicalisation method to use when creating a signature block.  Default
 is 'ec14n'.
 
+=item C<include_x509_cert>
+
+A boolean flag indicating whether the generated signature should include an
+X509 representation of the certificate with public key required to verify the
+signature.
+
 =item C<signature_algorithm>
 
 The signature algorithm to use when creating a signature block.  Default

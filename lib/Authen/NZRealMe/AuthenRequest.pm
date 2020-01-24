@@ -11,6 +11,7 @@ use IO::Uncompress::RawInflate qw(rawinflate $RawInflateError);
 use IO::Compress::RawDeflate   qw(rawdeflate $RawDeflateError);
 
 use Authen::NZRealMe::CommonURIs qw(NS_PAIR);
+use Authen::NZRealMe::Asserts    qw(assert_is_base64);
 
 my $ns_saml  = [ NS_PAIR('saml') ];
 my $ns_samlp = [ NS_PAIR('samlp') ];
@@ -23,6 +24,7 @@ sub new {
     my $self = bless {
         allow_create    => 'false',
         auth_strength   => 'low',
+        acs_index       => 0,
         @_,
     }, $class;
     return $self->_init($sp);
@@ -56,6 +58,7 @@ sub request_time    { shift->{request_time};        }
 sub destination_url { shift->{destination_url};     }
 sub saml_request    { shift->{saml_request};        }
 sub relay_state     { shift->{relay_state};         }
+sub acs_index       { shift->{acs_index};           }
 sub allow_create    { shift->_bool('allow_create'); }
 sub auth_strength   { shift->{auth_strength};       }
 sub _query_string   { shift->{query_string};        }
@@ -106,7 +109,7 @@ sub _generate_authn_request_doc {
             ID                            => $self->request_id(),
             IssueInstant                  => $self->request_time(),
             Destination                   => $self->destination_url(),
-            AssertionConsumerServiceIndex => '0',
+            AssertionConsumerServiceIndex => $self->acs_index(),
         },
         $self->_issuer(),
         $self->_nameid_policy(),
@@ -216,6 +219,8 @@ sub _request_from_uri_param {
     my($class, $data) = @_;
 
     $data = uri_unescape($data);
+
+    assert_is_base64($data, 'SAMLRequest');
     $data = decode_base64($data);
 
     my($xml, $status);
@@ -277,6 +282,11 @@ this request will be sent.
 =head2 saml_request
 
 Accessor for the XML document containing the SAML2 AuthenRequest.
+
+=head2 acs_index
+
+Accessor for the C<acs_index> parameter optionally passed to the constructor.
+If not provided, a default ACS index of 0 will be used.
 
 =head2 relay_state
 
