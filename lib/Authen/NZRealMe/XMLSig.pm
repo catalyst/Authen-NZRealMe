@@ -58,6 +58,7 @@ sub new {
         reference_digest_method => 'sha1',
         c14n_method             => 'ec14n',
         signature_algorithm     => 'rsa_sha1',
+        include_x509_cert       => 0,
         @_
     }, $class;
     return $self;
@@ -69,6 +70,7 @@ sub reference_transforms    { shift->{reference_transforms}; }
 sub reference_digest_method { shift->{reference_digest_method}; }
 sub c14n_method             { shift->{c14n_method}; }
 sub signature_algorithm     { shift->{signature_algorithm}; }
+sub include_x509_cert       { shift->{include_x509_cert}; }
 sub _signed_fragment_paths  { @{ shift->{signed_fragment_paths} }; }
 
 
@@ -360,6 +362,24 @@ sub _sig_as_xml {
     my $c14n    = $sig->{c14n};
     my $sig_alg = $sig->{signature_algorithm};
 
+    my @key_info;
+    if($self->include_x509_cert) {
+        my $cert_text = $self->pub_cert_text()
+            or die "Need pub_cert_file or pub_cert_text for include_x509_cert";
+        $cert_text =~ s{\A\s*-+\s*BEGIN CERTIFICATE\s*-+\s*}{};
+        $cert_text =~ s{\s*-+\s*END CERTIFICATE\s*-+\s*}{};
+        $cert_text =~ s{^\s+}{}mg;
+        @key_info = (
+            $x->KeyInfo($ns_ds,
+                $x->X509Data($ns_ds,
+                    $x->X509Certificate($ns_ds,
+                        $cert_text . "\n"
+                    )
+                )
+            )
+        );
+    }
+
     my $sig_xml = $x->Signature($ns_ds,
         $x->SignedInfo($ns_ds,
             $self->_transform_as_xml($x, 'CanonicalizationMethod', $ns_ds, $c14n),
@@ -367,6 +387,7 @@ sub _sig_as_xml {
             @ref_blocks,
         ),
         $x->SignatureValue($ns_ds),
+        @key_info,
     ) . '';
 
     my $xc = $self->_xcdom_from_xml($sig_xml, @$ns_ds);
