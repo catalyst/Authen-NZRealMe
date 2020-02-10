@@ -1,3 +1,11 @@
+libauthen-nzrealme-perl (1.20-1) stable; urgency=medium
+
+  * new upstream release:
+      - add support for HTTP-POST binding
+      - add a dependency on libcryptx-perl for decrypting assertions
+
+ -- Grant McLean <grant@catalyst.net.nz>  Mon, 10 Feb 2020 16:32:05 +1300
+
 libauthen-nzrealme-perl (1.19-1) stable; urgency=medium
 
   * new upstream release:
