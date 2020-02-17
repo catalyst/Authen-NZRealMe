@@ -141,6 +141,51 @@ $resp = eval {
 
 is($@ => '', 'no exceptions with skip_signature_check');
 
+# Now try a response containing a timeout status and no assertion
+
+$saml_response_file = 'login-assertion-post-4.b64';
+# Following was used to generate static test data - should be commented out
+# AuthenNZRealMeEncTestHelper::regenerate_saml_response_post_file(
+#     assertion_source_file => 'encrypted-timeout-plaintext.xml',
+#     base64_encode_output  => 1,
+#     output_file           => $saml_response_file,
+# );
+$saml_response = slurp_file(test_data_file($saml_response_file));
+
+$request_id = 'e1db069d533bcb0a5c75f489c739ba52e625cb827';
+$sp->wind_back_clock('2020-01-21T09:16:52Z');
+
+$resp = eval {
+    $sp->resolve_posted_assertion(
+        saml_response => $saml_response,
+        request_id    => $request_id
+    );
+};
+
+is($@ => '', 'no exceptions with clock wound back');
+
+isa_ok($resp => 'Authen::NZRealMe::ResolutionResponse', 'resolution response');
+
+ok(!$resp->is_success,        'response status is not success');
+ok($resp->is_error,           'response status is error');
+ok($resp->is_timeout,         'response status is timeout');
+ok(!$resp->is_cancel,         'response status is not cancel');
+ok(!$resp->is_not_registered, 'response status is not "not registered"');
+
+is(
+    $resp->status_urn,
+    'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:status:Timeout',
+    'response status_urn'
+);
+
+is(
+    $resp->status_message,
+    'RealMe login service session timeout',
+    'response status_message'
+);
+
+is($resp->flt, undef, 'response FLT not defined');
+
 done_testing;
 exit;
 

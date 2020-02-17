@@ -24,11 +24,10 @@ sub regenerate_saml_response_post_file {
     my $source_xml_file = $args{assertion_source_file}
         or die "need assertion_source_xml";
 
-    my $target_id = $args{signature_target_id}
-        or die "need signature_target_id to sign assertion";
-
     my $output_file = $args{output_file}
         or die "need output_file to save signed, encrypted, encoded assertion";
+
+    my $target_id = $args{signature_target_id};
 
     my $idp_key_file      = test_conf_file('idp-assertion-sign-key.pem');
     my $idp_pub_cert_file = test_conf_file('idp-assertion-sign-crt.pem');
@@ -47,35 +46,45 @@ sub regenerate_saml_response_post_file {
 
     my $xml = slurp_file( test_data_file($source_xml_file) );
 
-    # Add a signature (using incorrect key if a bad sig is required)
+    # Sign and encrypt assertion (if needed)
 
-    if($args{bad_sig}) {
-        $idp_key_file      = $sp_key_file;
-        $idp_pub_cert_file = $sp_pub_cert_file;
+    my $encrypted_xml;
+    if($target_id) {
+
+        # Add a signature (using incorrect key if a bad sig is required)
+
+        if($args{bad_sig}) {
+            $idp_key_file      = $sp_key_file;
+            $idp_pub_cert_file = $sp_pub_cert_file;
+        }
+        my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
+            key_file          => $idp_key_file,
+            pub_cert_file     => $idp_pub_cert_file,
+            algorithm         => 'rsa_sha256',
+            id_attr           => 'ID',
+            include_x509_cert => 1,
+        );
+
+        my $signed_xml = $signer->sign($xml, $target_id) . "\n";
+
+        # Encrypt the contents of the <EncryptedAssertion> element
+
+        my $encrypter = Authen::NZRealMe->class_for('xml_encrypter')->new(
+            pub_cert_file     => $sp_pub_cert_file,
+            id_attr           => 'ID',
+            include_x509_cert => 1,
+        );
+
+        $encrypted_xml = $encrypter->encrypt_one_element($signed_xml,
+            algorithm         => 'xenc_aes128cbc',
+            target_id         => $target_id,
+        );
+        $encrypted_xml =~ s{\A\s*<[?]xml.*?[?]>\s+}{};
     }
-    my $signer = Authen::NZRealMe->class_for('xml_signer')->new(
-        key_file          => $idp_key_file,
-        pub_cert_file     => $idp_pub_cert_file,
-        algorithm         => 'rsa_sha256',
-        id_attr           => 'ID',
-        include_x509_cert => 1,
-    );
-
-    my $signed_xml = $signer->sign($xml, $target_id) . "\n";
-
-    # Encrypt the contents of the <EncryptedAssertion> element
-
-    my $encrypter = Authen::NZRealMe->class_for('xml_encrypter')->new(
-        pub_cert_file     => $sp_pub_cert_file,
-        id_attr           => 'ID',
-        include_x509_cert => 1,
-    );
-
-    my $encrypted_xml = $encrypter->encrypt_one_element($signed_xml,
-        algorithm         => 'xenc_aes128cbc',
-        target_id         => $target_id,
-    );
-    $encrypted_xml =~ s{\A\s*<[?]xml.*?[?]>\s+}{};
+    else {
+        warn "no signature_target_id skipping signing and encryption\n";
+        $encrypted_xml = $xml;
+    }
 
     my $output = $args{base64_encode_output}
         ? encode_base64($encrypted_xml) . "\n"

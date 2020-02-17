@@ -296,6 +296,11 @@ references.  Source [SAML2].
 Identifier type used by RealMe for SAML 2.0 response timeout status references.
 Source [RM_LOGIN].
 
+=item gls_timeout => urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:status:Timeout
+
+Identifier type used by GLS for SAML 2.0 response timeout status references.
+Source [RM_LOGIN].
+
 =item xpil => urn:oasis:names:tc:ciq:xpil:3
 
 Namespace used for party (person) elements in RealMe identity assertions.
