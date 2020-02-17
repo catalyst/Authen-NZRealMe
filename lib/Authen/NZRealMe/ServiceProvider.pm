@@ -869,9 +869,10 @@ sub _build_resolution_response {
 
     my $message_xpath = $binding eq 'http_post'
         ? '/samlp:Response/samlp:Status/samlp:StatusMessage'
-        : '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusCode';
+        : '//samlp:ArtifactResponse/samlp:Response/samlp:Status/samlp:StatusMessage';
     my $message = $xc->findvalue($message_xpath) || '';
-    $message =~ s{^\[.*\]}{};    # Strip off [SP EntityID] prefix
+    $message =~ s{(\A\s+|\s+\z)}{}g; # Strip off leading and trailing whitespace
+    $message =~ s{^\[.*\]\s*}{};     # Strip off [SP EntityID] prefix
     $response->set_status_message($message) if $message;
 
     return $response
