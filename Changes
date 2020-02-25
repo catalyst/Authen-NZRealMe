@@ -1,6 +1,8 @@
 Revision history for {{$dist->name}}
 
 {{$NEXT}}
+
+1.20      2020-02-25 13:07:33+13:00 Pacific/Auckland
     - implement HTTP-POST binding through new resolve_posted_assertion()
       method in ServiceProvider.pm
     - as RealMe's HTTP-POST assertions are all encrypted, support has been
