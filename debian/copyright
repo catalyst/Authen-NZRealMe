@@ -1,9 +1,9 @@
 This is the debian package for the Authen-NZRealMe module.
-It was created by Grant McLean <grant@catalyst.net.nz> using dh-make-perl.
+It was created by Andrew Maguire <andrew.maguire@catalyst.net.nz> using dh-make-perl.
 
-It was downloaded from http://search.cpan.org/dist/Authen-NZRealMe/
+It was downloaded from https://metacpan.org/release/Authen-NZRealMe
 
-Copyright (c) 2010-2013 Enrolment Services, New Zealand Electoral Commission
+Copyright (c) 2010-2021 Enrolment Services, New Zealand Electoral Commission
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
@@ -14,6 +14,6 @@ GNU General Public License can be found in `/usr/share/common-licenses/GPL'
 and the Artistic Licence in `/usr/share/common-licenses/Artistic'.
 
 
-The Debian packaging is also copyright (c) 2010-2013 Enrolment Services, New
+The Debian packaging is also copyright (c) 2010-2021 Enrolment Services, New
 Zealand Electoral Commission and is licensed under the same terms as the
 software itself (see above).

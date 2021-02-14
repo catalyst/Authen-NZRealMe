@@ -24,7 +24,7 @@ sub new {
     my $self = bless {
         allow_create    => 'false',
         auth_strength   => 'low',
-        acs_index       => 0,
+        acs_index       => 'default',
         @_,
     }, $class;
     return $self->_init($sp);
@@ -286,7 +286,7 @@ Accessor for the XML document containing the SAML2 AuthenRequest.
 =head2 acs_index
 
 Accessor for the C<acs_index> parameter optionally passed to the constructor.
-If not provided, a default ACS index of 0 will be used.
+If not provided, the default ACS will be used.
 
 =head2 relay_state
 

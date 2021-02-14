@@ -163,7 +163,7 @@ sub _dispatch_make_req {
         my $allow_create = $opt->{allow_create} ? 1 : 0;
         push @req_options, allow_create => $allow_create;
     }
-    my $acs_index = $opt->{acs_index} // 0;
+    my $acs_index = $opt->{acs_index} // 'default';
     push @req_options, acs_index => $acs_index;
 
     my $req = $sp->new_request( @req_options );
