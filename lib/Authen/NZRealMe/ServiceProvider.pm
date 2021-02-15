@@ -827,7 +827,6 @@ sub _verify_assertion {
     elsif($self->type eq 'assertion') {
         $self->_extract_assertion_payload($response, $xc, $assertion);
         $self->_extract_assertion_flt($response, $xc, $subject);
-#        warn "Assertion contains:\n$xml\n$subject";
     }
 
     return $response;
@@ -1056,13 +1055,15 @@ sub _extract_ivs_details {
 
     my $json = JSON::XS::decode_json($data);
 
-    my $dob  = $json->{DateOfBirth} or warn "DateOfBirth field is not in JSON IVS";
-    my $name = $json->{Name}        or warn "Name field is not in JSON IVS";
+    my $dob  = $json->{dateOfBirth} or warn "dateOfBirth field is not in JSON IVS";
+    my $name = $json->{name}        or warn "name field is not in JSON IVS";
 
-    $response->set_date_of_birth($dob->{DateOfBirthValue});
-    $response->set_surname(   $name->{LastName});
-    $response->set_first_name($name->{FirstName});
-    $response->set_mid_names( $name->{MiddleName});
+    $response->set_date_of_birth($dob->{dateOfBirthValue});
+    $response->set_surname(   $name->{lastName});
+    $response->set_first_name($name->{firstName});
+    $response->set_mid_names( $name->{middleName});
+
+    $response->set_gender($json->{gender}) if $json->{gender};
 }
 
 sub _extract_ivsx_details {
