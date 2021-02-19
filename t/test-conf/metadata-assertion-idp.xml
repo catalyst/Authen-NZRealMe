@@ -40,5 +40,8 @@ gCNF
         <SingleSignOnService
                 Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
                 Location="https://test.fakeme.govt.nz/fakeme-test/validate/fakeme-test-idp.xhtml"/>
+        <SingleSignOnService
+                Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                Location="https://test.fakeme.govt.nz/fakeme-test/validate/fakeme-test-post-idp.xhtml"/>
     </IDPSSODescriptor>
 </EntityDescriptor>

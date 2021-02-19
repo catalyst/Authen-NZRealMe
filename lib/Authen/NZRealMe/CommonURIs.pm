@@ -281,6 +281,10 @@ Identifier type used for SAML 2.0 binding type references.  Source [SAML2].
 
 Identifier type used for SAML 2.0 HTTP-Artifact binding.  Source [SAML2].
 
+=item saml_binding_redirect => urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect
+
+Identifier type used for SAML 2.0 HTTP-Redirect binding.  Source [SAML2].
+
 =item saml_binding_post => urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST
 
 Identifier type used for SAML 2.0 HTTP-POST binding.  Source [SAML2].

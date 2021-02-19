@@ -1541,6 +1541,12 @@ Default: 'low'.
 User-supplied string value that will be returned as a URL parameter to the
 assertion consumer service.
 
+=item acs_index => integer or 'default'
+
+Used to specify the numeric index of the Assertion Consumer Service
+you would like the response sent to.
+The value C<default> may also be used to specify the ACS marked as the default.
+
 =back
 
 =head2 metadata_xml
@@ -1644,9 +1650,9 @@ dialogue with the IdP and retrieve it from state when resolving the artifact.
 
 Optional parameter which may be used to specify the numeric index of the
 Assertion Consumer Service you would like the response sent to.  This would
-normally be ommitted, resulting in the default value (0) being used.  Currently
+normally be omitted, resulting in the default being used.  Currently
 the primary reason for specifying this value is if your metadata defines one or
-more ACS entries using the HTTP-Artefact binding and one or more which use the
+more ACS entries using the HTTP-Artifact binding and one or more which use the
 HTTP-POST binding. This parameter will allow you to tell the server which
 binding to use - which may be useful while transitioning your system from one
 binding to another.
