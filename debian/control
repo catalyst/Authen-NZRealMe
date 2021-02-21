@@ -3,7 +3,7 @@ Section: perl
 Priority: optional
 Build-Depends: debhelper (>= 5)
 Build-Depends-Indep: perl (>= 5.6.10-12)
-Maintainer: Grant McLean <grant@catalyst.net.nz>
+Maintainer: Andrew Maguire <andrew.maguire@catalyst.net.nz>
 Standards-Version: 3.8.0
 Homepage: http://search.cpan.org/dist/Authen-NZRealMe/
 

@@ -16,11 +16,13 @@ require Authen::NZRealMe;
 
 my $conf_dir = test_conf_dir();
 
-my $sp = Authen::NZRealMe->service_provider( conf_dir => $conf_dir );
+my $sso_binding = 'post';
+
+my $sp = Authen::NZRealMe->service_provider( conf_dir => $conf_dir, type => 'assertion' );
 
 isa_ok($sp, 'Authen::NZRealMe::ServiceProvider');
 
-my $req = $sp->new_request();
+my $req = $sp->new_request( sso_binding => $sso_binding );
 
 isa_ok($req, 'Authen::NZRealMe::AuthenRequest');
 
@@ -37,7 +39,7 @@ my $req_time = timegm($sec, $min, $hour, $day, $month - 1, $year - 1900);
 ok((time() - $req_time) < 10,
     'request time seems to be a UTC version of current time');
 
-is($req->destination_url, $sp->idp->single_signon_location,
+is($req->destination_url, $sp->idp->single_signon_location($sso_binding),
     'request destination URL matches IdP metadata setting');
 
 is($req->relay_state, undef, 'request has no default relay state');
@@ -57,7 +59,7 @@ my($idp_url, $payload, $sig_alg, $sig) = $url =~ m{
 }x;
 
 ok(defined($sig), 'format of request as URL looks good');
-is($idp_url, $sp->idp->single_signon_location, 'host and path are correct');
+is($idp_url, $sp->idp->single_signon_location($sso_binding), 'host and path are correct');
 
 my $plaintext = "SAMLRequest=$payload&SigAlg=$sig_alg";
 
@@ -88,32 +90,19 @@ xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@Version} => '2.0');
 xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@AssertionConsumerServiceIndex} => '1');
 xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@ID} => $req_id);
 xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@IssueInstant} => $req->request_time);
-xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@Destination} => $sp->idp->single_signon_location);
+xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@Destination} => $sp->idp->single_signon_location($sso_binding));
 xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssaml:Issuer} => $sp->entity_id);
-xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:NameIDPolicy/@AllowCreate} => 'false');
 xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:NameIDPolicy/@Format}
-    => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent');
-xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:RequestedAuthnContext/nssaml:AuthnContextClassRef}
-    => 'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:ac:classes:LowStrength');
+    => 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient');
 
 
 my $req2 = $sp->new_request(
-    allow_create  => 1,
     relay_state   => 'pending',
-    auth_strength => 'sms',
+    sso_binding   => $sso_binding,
 );
 
-is($req2->allow_create, 'true',    'request enables account creation');
+is($req2->allow_create, 'false',   'request enables account creation');
 is($req2->relay_state,  'pending', 'request has expected relay state');
-
-$strength = $req2->auth_strength;
-isa_ok($strength, 'Authen::NZRealMe::LogonStrength');
-eval { $strength->assert_match('mod', 'minimum'); };
-is($@, '', "auth strength is at least 'moderate'");
-eval { $strength->assert_match('mod', 'exact'); };
-is($@, '', "auth strength is 'moderate'");
-eval { $strength->assert_match('sms', 'exact'); };
-is($@, '', "auth strength is 'moderate-SMS'");
 
 $url = $req2->as_url;
 my($relay);
@@ -140,9 +129,10 @@ $xml = Authen::NZRealMe::AuthenRequest->_request_from_uri($url);
 ok($xml, 'extracted XML request for analysis');
 
 xml_found_node_ok($xml, q{/nssamlp:AuthnRequest});
-xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:NameIDPolicy/@AllowCreate} => 'true');
-xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:RequestedAuthnContext/nssaml:AuthnContextClassRef}
-    => 'urn:nzl:govt:ict:stds:authn:deployment:GLS:SAML:2.0:ac:classes:ModStrength::OTP:Token:SMS');
+xml_node_content_is($xml, q{/nssamlp:AuthnRequest/nssamlp:NameIDPolicy/@Format}
+    => 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient');
+xml_node_content_is($xml, q{/nssamlp:AuthnRequest/@Destination}
+    => 'https://test.fakeme.govt.nz/fakeme-test/validate/fakeme-test-post-idp.xhtml');
 
 done_testing();
 
