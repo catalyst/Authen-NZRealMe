@@ -2,6 +2,10 @@ Revision history for {{$dist->name}}
 
 {{$NEXT}}
 
+1.22      2021-02-24 16:03:38+13:00 Pacific/Auckland
+    - require JSON::XS
+    - updates to documentation
+
 1.21      2021-02-22 10:15:36+13:00 Pacific/Auckland
     - Support both the current and upcoming new RealMe platform.
     - The replatformed RealMe has changed behaviour so that the:
