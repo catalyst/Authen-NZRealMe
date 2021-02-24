@@ -9,7 +9,7 @@ Homepage: http://search.cpan.org/dist/Authen-NZRealMe/
 
 Package: libauthen-nzrealme-perl
 Architecture: all
-Depends: ${perl:Depends}, ${misc:Depends}, openssl, zip, libxml-generator-perl, libxml-libxml-perl, liburi-perl, libwww-perl, libwww-curl-perl, libcrypt-openssl-rsa-perl, libcrypt-openssl-x509-perl, libio-compress-zlib-perl, libterm-readline-gnu-perl, libtimedate-perl, libossp-uuid-perl, libcryptx-perl
+Depends: ${perl:Depends}, ${misc:Depends}, openssl, zip, libxml-generator-perl, libxml-libxml-perl, liburi-perl, libwww-perl, libwww-curl-perl, libcrypt-openssl-rsa-perl, libcrypt-openssl-x509-perl, libio-compress-zlib-perl, libterm-readline-gnu-perl, libtimedate-perl, libossp-uuid-perl, libcryptx-perl, libjson-xs-perl
 Description:  Tools for integrating with the New Zealand RealMe login and
  identity services (formerly "igovt logon").  This module provides an API for
  integrating your application with the New Zealand RealMe services using SAML

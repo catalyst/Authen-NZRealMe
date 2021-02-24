@@ -12,6 +12,7 @@ requires 'Digest::SHA';
 requires 'IO::Compress::RawDeflate';
 requires 'Data::UUID';
 requires 'CryptX';
+requires 'JSON::XS';
 
 on 'test' => sub {
     requires 'Test::More', '0.88';
